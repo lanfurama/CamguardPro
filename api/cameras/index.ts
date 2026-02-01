@@ -1,0 +1,36 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getCameras } from '../../lib/api-data';
+import * as cameraRepo from '../../lib/repositories/cameraRepository';
+import type { Camera } from '../../types';
+
+/**
+ * GET /api/cameras - Lấy danh sách camera
+ * POST /api/cameras - Tạo mới hoặc import (body: { cameras?: Camera[], camera?: Camera })
+ */
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    if (req.method === 'GET') {
+      const cameras = await getCameras();
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json(cameras);
+    }
+
+    if (req.method === 'POST') {
+      const body = req.body as { cameras?: Camera[]; camera?: Camera };
+      if (body.cameras?.length) {
+        const created = await cameraRepo.importCameras(body.cameras);
+        return res.status(201).json(created);
+      }
+      if (body.camera) {
+        const created = await cameraRepo.createCamera(body.camera);
+        return res.status(201).json(created);
+      }
+      return res.status(400).json({ error: 'Thiếu camera hoặc cameras' });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[api/cameras]', err);
+    return res.status(500).json({ error: 'Lỗi khi xử lý camera' });
+  }
+}

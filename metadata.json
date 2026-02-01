@@ -1,0 +1,5 @@
+{
+  "name": "CamGuard Pro",
+  "description": "Hệ thống quản lý camera tập trung với mô phỏng giám sát ping thời gian thực, quản lý đa điểm (Property), và phân tích bảo trì thông minh bằng Gemini AI.",
+  "requestFramePermissions": []
+}
