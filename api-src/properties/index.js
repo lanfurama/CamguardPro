@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api-src/_lib/repositories/propertyRepository.ts
+// api/_lib/repositories/propertyRepository.ts
 async function getAllProperties() {
   const [propsResult, zonesResult] = await Promise.all([
     query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
@@ -5634,7 +5634,7 @@ async function createProperty(data) {
   return all.find((p) => p.id === id);
 }
 
-// api-src/_lib/api-data.ts
+// api/_lib/api-data.ts
 async function getProperties() {
   if (!isDbConfigured()) return [];
   try {
@@ -5645,7 +5645,7 @@ async function getProperties() {
   }
 }
 
-// api-src/properties/index.ts
+// api/properties/index.ts
 async function handler(req, res) {
   try {
     if (req.method === "GET") {

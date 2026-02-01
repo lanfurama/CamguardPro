@@ -11,9 +11,8 @@ node_modules
 dist
 dist-ssr
 
-# API bundle output (tạo bởi scripts/build-api.mjs)
-.api-build
-api/**/*.js
+# API bundle output (tạo bởi scripts/build-api.mjs, chỉ có trên Vercel build)
+api/
 *.local
 .env
 .env.*

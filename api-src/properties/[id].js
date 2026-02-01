@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api-src/_lib/repositories/propertyRepository.ts
+// api/_lib/repositories/propertyRepository.ts
 async function getAllProperties() {
   const [propsResult, zonesResult] = await Promise.all([
     query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
@@ -5613,55 +5613,62 @@ async function getAllProperties() {
     zones: zonesByProperty.get(p.id) ?? []
   }));
 }
-function generatePropertyId() {
-  return `PROP_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-async function createProperty(data) {
-  const id = data.id || generatePropertyId();
+async function updateProperty(data) {
   await query(
-    `INSERT INTO properties (id, name, address, manager) VALUES ($1, $2, $3, $4)`,
-    [id, data.name, data.address || null, data.manager || null]
+    `UPDATE properties SET name=$2, address=$3, manager=$4 WHERE id=$1`,
+    [data.id, data.name, data.address || null, data.manager || null]
   );
+  await query(`DELETE FROM property_zones WHERE property_id = $1`, [data.id]);
   if (data.zones?.length) {
     for (const z of data.zones) {
       await query(
         `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO NOTHING`,
-        [id, z]
+        [data.id, z]
       );
     }
   }
   const all = await getAllProperties();
-  return all.find((p) => p.id === id);
+  return all.find((p) => p.id === data.id);
+}
+async function deleteProperty(id) {
+  await query(`DELETE FROM properties WHERE id = $1`, [id]);
+}
+async function hasCamerasInProperty(propertyId) {
+  const r = await query(
+    `SELECT COUNT(*) as count FROM cameras WHERE property_id = $1`,
+    [propertyId]
+  );
+  return parseInt(r.rows[0]?.count ?? "0", 10) > 0;
 }
 
-// api-src/_lib/api-data.ts
-async function getProperties() {
-  if (!isDbConfigured()) return [];
-  try {
-    return await getAllProperties();
-  } catch (err) {
-    console.error("[api-data] getProperties error:", err);
-    throw err;
-  }
-}
-
-// api-src/properties/index.ts
+// api/properties/[id].ts
 async function handler(req, res) {
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ error: "Thi\u1EBFu id property" });
+  if (!isDbConfigured()) {
+    return res.status(503).json({ error: "Database ch\u01B0a \u0111\u01B0\u1EE3c c\u1EA5u h\xECnh" });
+  }
   try {
-    if (req.method === "GET") {
-      const properties = await getProperties();
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(properties);
-    }
-    if (req.method === "POST") {
+    if (req.method === "PUT") {
       const data = req.body;
-      const created = await createProperty(data);
-      return res.status(201).json(created);
+      if (data.id !== id) return res.status(400).json({ error: "ID kh\xF4ng kh\u1EDBp" });
+      const updated = await updateProperty(data);
+      return res.status(200).json(updated);
+    }
+    if (req.method === "DELETE") {
+      const hasCameras = await hasCamerasInProperty(id);
+      if (hasCameras) {
+        return res.status(400).json({
+          error: "Kh\xF4ng th\u1EC3 xo\xE1 to\xE0 nh\xE0 \u0111ang ch\u1EE9a Camera. Vui l\xF2ng di chuy\u1EC3n ho\u1EB7c xo\xE1 camera tr\u01B0\u1EDBc."
+        });
+      }
+      await deleteProperty(id);
+      return res.status(200).json({ ok: true });
     }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    console.error("[api/properties]", err);
-    return res.status(500).json({ error: "L\u1ED7i khi x\u1EED l\xFD to\xE0 nh\xE0" });
+    console.error("[api/properties/[id]]", err);
+    return res.status(500).json({ error: "L\u1ED7i x\u1EED l\xFD y\xEAu c\u1EA7u" });
   }
 }
 export {

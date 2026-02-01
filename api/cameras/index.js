@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api/_lib/db.ts
+// api-src/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api/_lib/repositories/cameraRepository.ts
+// api-src/_lib/repositories/cameraRepository.ts
 function mapToCamera(row, logs) {
   return {
     id: row.id,
@@ -5690,7 +5690,7 @@ async function importCameras(cameras) {
   return created;
 }
 
-// api/_lib/api-data.ts
+// api-src/_lib/api-data.ts
 async function getCameras() {
   if (!isDbConfigured()) return [];
   try {
@@ -5701,7 +5701,7 @@ async function getCameras() {
   }
 }
 
-// api/cameras/index.ts
+// api-src/cameras/index.ts
 async function handler(req, res) {
   try {
     if (req.method === "GET") {

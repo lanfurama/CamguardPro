@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,75 +5593,124 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api-src/_lib/repositories/propertyRepository.ts
-async function getAllProperties() {
-  const [propsResult, zonesResult] = await Promise.all([
-    query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
-    query(`SELECT property_id, name FROM property_zones ORDER BY property_id, name`)
-  ]);
-  const zonesByProperty = /* @__PURE__ */ new Map();
-  for (const z of zonesResult.rows) {
-    const arr = zonesByProperty.get(z.property_id) ?? [];
-    arr.push(z.name);
-    zonesByProperty.set(z.property_id, arr);
-  }
-  return propsResult.rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    address: p.address ?? "",
-    manager: p.manager ?? "",
-    zones: zonesByProperty.get(p.id) ?? []
-  }));
+// api/_lib/repositories/cameraRepository.ts
+function mapToCamera(row, logs) {
+  return {
+    id: row.id,
+    propertyId: row.property_id,
+    zone: row.zone_name,
+    name: row.camera_name,
+    location: row.location ?? "",
+    ip: row.ip,
+    brand: row.brand,
+    model: row.model ?? "",
+    specs: row.specs ?? "",
+    supplier: row.supplier ?? "",
+    status: row.status,
+    consecutiveDrops: row.consecutive_drops,
+    lastPingTime: Number(row.last_ping_time),
+    notes: row.notes ?? "",
+    logs: logs.map((l) => ({
+      id: l.id,
+      date: l.log_date,
+      description: l.description,
+      technician: l.technician ?? void 0,
+      type: l.type
+    }))
+  };
 }
-function generatePropertyId() {
-  return `PROP_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-async function createProperty(data) {
-  const id = data.id || generatePropertyId();
-  await query(
-    `INSERT INTO properties (id, name, address, manager) VALUES ($1, $2, $3, $4)`,
-    [id, data.name, data.address || null, data.manager || null]
+async function getAllCameras() {
+  const camerasResult = await query(
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes
+     FROM v_cameras_full ORDER BY camera_name`
   );
-  if (data.zones?.length) {
-    for (const z of data.zones) {
-      await query(
-        `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO NOTHING`,
-        [id, z]
-      );
-    }
+  if (camerasResult.rows.length === 0) return [];
+  const cameraIds = camerasResult.rows.map((r) => r.id);
+  const logsResult = await query(
+    `SELECT id, camera_id, log_date::text, description, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
+    [cameraIds]
+  );
+  const logsByCamera = /* @__PURE__ */ new Map();
+  for (const log of logsResult.rows) {
+    const arr = logsByCamera.get(log.camera_id) ?? [];
+    arr.push(log);
+    logsByCamera.set(log.camera_id, arr);
   }
-  const all = await getAllProperties();
-  return all.find((p) => p.id === id);
+  return camerasResult.rows.map(
+    (row) => mapToCamera(row, logsByCamera.get(row.id) ?? [])
+  );
+}
+async function getOrCreateZoneId(propertyId, zoneName) {
+  let result = await query(
+    `SELECT id FROM property_zones WHERE property_id = $1 AND name = $2`,
+    [propertyId, zoneName]
+  );
+  if (result.rows.length > 0) return result.rows[0].id;
+  result = await query(
+    `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO UPDATE SET name = $2 RETURNING id`,
+    [propertyId, zoneName]
+  );
+  return result.rows[0].id;
+}
+async function updateCamera(data) {
+  const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
+  await query(
+    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14 WHERE id=$1`,
+    [
+      data.id,
+      data.propertyId,
+      zoneId,
+      data.name,
+      data.location || null,
+      data.ip,
+      data.brand,
+      data.model || null,
+      data.specs || null,
+      data.supplier || null,
+      data.status,
+      data.consecutiveDrops ?? 0,
+      data.lastPingTime ?? Date.now(),
+      data.notes || null
+    ]
+  );
+  const all = await getAllCameras();
+  return all.find((c) => c.id === data.id);
+}
+async function deleteCamera(id) {
+  await query(`DELETE FROM cameras WHERE id = $1`, [id]);
+}
+async function updateCameraNotes(id, notes) {
+  await query(`UPDATE cameras SET notes = $2 WHERE id = $1`, [id, notes]);
 }
 
-// api-src/_lib/api-data.ts
-async function getProperties() {
-  if (!isDbConfigured()) return [];
-  try {
-    return await getAllProperties();
-  } catch (err) {
-    console.error("[api-data] getProperties error:", err);
-    throw err;
-  }
-}
-
-// api-src/properties/index.ts
+// api/cameras/[id].ts
 async function handler(req, res) {
+  const id = req.query.id;
+  if (!id) return res.status(400).json({ error: "Thi\u1EBFu id camera" });
+  if (!isDbConfigured()) {
+    return res.status(503).json({ error: "Database ch\u01B0a \u0111\u01B0\u1EE3c c\u1EA5u h\xECnh" });
+  }
   try {
-    if (req.method === "GET") {
-      const properties = await getProperties();
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(properties);
-    }
-    if (req.method === "POST") {
+    if (req.method === "PUT") {
       const data = req.body;
-      const created = await createProperty(data);
-      return res.status(201).json(created);
+      if (data.id !== id) return res.status(400).json({ error: "ID kh\xF4ng kh\u1EDBp" });
+      const updated = await updateCamera(data);
+      return res.status(200).json(updated);
+    }
+    if (req.method === "PATCH") {
+      const { notes } = req.body;
+      if (typeof notes !== "string") return res.status(400).json({ error: "Thi\u1EBFu notes" });
+      await updateCameraNotes(id, notes);
+      return res.status(200).json({ ok: true });
+    }
+    if (req.method === "DELETE") {
+      await deleteCamera(id);
+      return res.status(200).json({ ok: true });
     }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    console.error("[api/properties]", err);
-    return res.status(500).json({ error: "L\u1ED7i khi x\u1EED l\xFD to\xE0 nh\xE0" });
+    console.error("[api/cameras/[id]]", err);
+    return res.status(500).json({ error: "L\u1ED7i x\u1EED l\xFD y\xEAu c\u1EA7u" });
   }
 }
 export {

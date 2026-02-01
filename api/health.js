@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api/_lib/db.ts
+// api-src/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ async function checkConnection() {
   }
 }
 
-// api/health.ts
+// api-src/health.ts
 async function handler(_req, res) {
   const dbStatus = await checkConnection();
   res.setHeader("Cache-Control", "no-store");

@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api/_lib/db.ts
+// api-src/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api/_lib/repositories/brandRepository.ts
+// api-src/_lib/repositories/brandRepository.ts
 async function getAllBrands() {
   const result = await query(`SELECT name FROM brands ORDER BY name`);
   return result.rows.map((r) => r.name);
@@ -5605,7 +5605,7 @@ async function addBrand(name) {
   );
 }
 
-// api/_lib/api-data.ts
+// api-src/_lib/api-data.ts
 async function getBrands() {
   if (!isDbConfigured()) return [];
   try {
@@ -5616,7 +5616,7 @@ async function getBrands() {
   }
 }
 
-// api/brands/index.ts
+// api-src/brands/index.ts
 async function handler(req, res) {
   try {
     if (req.method === "GET") {

@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api/_lib/db.ts
+// api-src/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,7 +5593,7 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api/_lib/repositories/cameraRepository.ts
+// api-src/_lib/repositories/cameraRepository.ts
 function mapToCamera(row, logs) {
   return {
     id: row.id,
@@ -5683,7 +5683,7 @@ async function updateCameraNotes(id, notes) {
   await query(`UPDATE cameras SET notes = $2 WHERE id = $1`, [id, notes]);
 }
 
-// api/cameras/[id].ts
+// api-src/cameras/[id].ts
 async function handler(req, res) {
   const id = req.query.id;
   if (!id) return res.status(400).json({ error: "Thi\u1EBFu id camera" });

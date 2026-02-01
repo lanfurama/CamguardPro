@@ -2950,23 +2950,23 @@ var require_serializer = __commonJS({
         /* code.startup */
       );
     };
-    var query2 = (text) => {
+    var query = (text) => {
       return writer.addCString(text).flush(
         81
         /* code.query */
       );
     };
     var emptyArray = [];
-    var parse = (query3) => {
-      const name = query3.name || "";
+    var parse = (query2) => {
+      const name = query2.name || "";
       if (name.length > 63) {
         console.error("Warning! Postgres only supports 63 characters for query names.");
         console.error("You supplied %s (%s)", name, name.length);
         console.error("This can cause conflicts and silent errors executing queries");
       }
-      const types2 = query3.types || emptyArray;
+      const types2 = query2.types || emptyArray;
       const len = types2.length;
-      const buffer = writer.addCString(name).addCString(query3.text).addInt16(len);
+      const buffer = writer.addCString(name).addCString(query2.text).addInt16(len);
       for (let i = 0; i < len; i++) {
         buffer.addInt32(types2[i]);
       }
@@ -3106,7 +3106,7 @@ var require_serializer = __commonJS({
       requestSsl,
       sendSASLInitialResponseMessage,
       sendSCRAMClientFinalMessage,
-      query: query2,
+      query,
       parse,
       bind,
       execute,
@@ -3717,8 +3717,8 @@ var require_connection = __commonJS({
         this._send(serialize.query(text));
       }
       // send parse message
-      parse(query2) {
-        this._send(serialize.parse(query2));
+      parse(query) {
+        this._send(serialize.parse(query));
       }
       // send bind message
       bind(config) {
@@ -4160,9 +4160,9 @@ var require_client = __commonJS({
         return this._activeQuery;
       }
       _errorAllQueries(err) {
-        const enqueueError = (query2) => {
+        const enqueueError = (query) => {
           process.nextTick(() => {
-            query2.handleError(err, this.connection);
+            query.handleError(err, this.connection);
           });
         };
         const activeQuery = this._getActiveQuery();
@@ -4514,8 +4514,8 @@ var require_client = __commonJS({
         }
         return data;
       }
-      cancel(client, query2) {
-        if (client.activeQuery === query2) {
+      cancel(client, query) {
+        if (client.activeQuery === query) {
           const con = this.connection;
           if (this.host && this.host.indexOf("/") === 0) {
             con.connect(this.host + "/.s.PGSQL." + this.port);
@@ -4525,8 +4525,8 @@ var require_client = __commonJS({
           con.on("connect", function() {
             con.cancel(client.processID, client.secretKey);
           });
-        } else if (client._queryQueue.indexOf(query2) !== -1) {
-          client._queryQueue.splice(client._queryQueue.indexOf(query2), 1);
+        } else if (client._queryQueue.indexOf(query) !== -1) {
+          client._queryQueue.splice(client._queryQueue.indexOf(query), 1);
         }
       }
       setTypeParser(oid, format, parseFn) {
@@ -4566,7 +4566,7 @@ var require_client = __commonJS({
         }
       }
       query(config, values, callback) {
-        let query2;
+        let query;
         let result;
         let readTimeout;
         let readTimeoutTimer;
@@ -4575,16 +4575,16 @@ var require_client = __commonJS({
           throw new TypeError("Client was passed a null or undefined query");
         } else if (typeof config.submit === "function") {
           readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-          result = query2 = config;
+          result = query = config;
           if (typeof values === "function") {
-            query2.callback = query2.callback || values;
+            query.callback = query.callback || values;
           }
         } else {
           readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-          query2 = new Query2(config, values, callback);
-          if (!query2.callback) {
+          query = new Query2(config, values, callback);
+          if (!query.callback) {
             result = new this._Promise((resolve, reject) => {
-              query2.callback = (err, res) => err ? reject(err) : resolve(res);
+              query.callback = (err, res) => err ? reject(err) : resolve(res);
             }).catch((err) => {
               Error.captureStackTrace(err);
               throw err;
@@ -4592,45 +4592,45 @@ var require_client = __commonJS({
           }
         }
         if (readTimeout) {
-          queryCallback = query2.callback;
+          queryCallback = query.callback;
           readTimeoutTimer = setTimeout(() => {
             const error = new Error("Query read timeout");
             process.nextTick(() => {
-              query2.handleError(error, this.connection);
+              query.handleError(error, this.connection);
             });
             queryCallback(error);
-            query2.callback = () => {
+            query.callback = () => {
             };
-            const index = this._queryQueue.indexOf(query2);
+            const index = this._queryQueue.indexOf(query);
             if (index > -1) {
               this._queryQueue.splice(index, 1);
             }
             this._pulseQueryQueue();
           }, readTimeout);
-          query2.callback = (err, res) => {
+          query.callback = (err, res) => {
             clearTimeout(readTimeoutTimer);
             queryCallback(err, res);
           };
         }
-        if (this.binary && !query2.binary) {
-          query2.binary = true;
+        if (this.binary && !query.binary) {
+          query.binary = true;
         }
-        if (query2._result && !query2._result._types) {
-          query2._result._types = this._types;
+        if (query._result && !query._result._types) {
+          query._result._types = this._types;
         }
         if (!this._queryable) {
           process.nextTick(() => {
-            query2.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
+            query.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
           });
           return result;
         }
         if (this._ending) {
           process.nextTick(() => {
-            query2.handleError(new Error("Client was closed and is not queryable"), this.connection);
+            query.handleError(new Error("Client was closed and is not queryable"), this.connection);
           });
           return result;
         }
-        this._queryQueue.push(query2);
+        this._queryQueue.push(query);
         this._pulseQueryQueue();
         return result;
       }
@@ -5251,10 +5251,10 @@ var require_client2 = __commonJS({
     Client2.Query = NativeQuery;
     util.inherits(Client2, EventEmitter);
     Client2.prototype._errorAllQueries = function(err) {
-      const enqueueError = (query2) => {
+      const enqueueError = (query) => {
         process.nextTick(() => {
-          query2.native = this.native;
-          query2.handleError(err);
+          query.native = this.native;
+          query.handleError(err);
         });
       };
       if (this._hasActiveQuery()) {
@@ -5313,7 +5313,7 @@ var require_client2 = __commonJS({
       });
     };
     Client2.prototype.query = function(config, values, callback) {
-      let query2;
+      let query;
       let result;
       let readTimeout;
       let readTimeoutTimer;
@@ -5322,14 +5322,14 @@ var require_client2 = __commonJS({
         throw new TypeError("Client was passed a null or undefined query");
       } else if (typeof config.submit === "function") {
         readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-        result = query2 = config;
+        result = query = config;
         if (typeof values === "function") {
           config.callback = values;
         }
       } else {
         readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-        query2 = new NativeQuery(config, values, callback);
-        if (!query2.callback) {
+        query = new NativeQuery(config, values, callback);
+        if (!query.callback) {
           let resolveOut, rejectOut;
           result = new this._Promise((resolve, reject) => {
             resolveOut = resolve;
@@ -5338,45 +5338,45 @@ var require_client2 = __commonJS({
             Error.captureStackTrace(err);
             throw err;
           });
-          query2.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
+          query.callback = (err, res) => err ? rejectOut(err) : resolveOut(res);
         }
       }
       if (readTimeout) {
-        queryCallback = query2.callback;
+        queryCallback = query.callback;
         readTimeoutTimer = setTimeout(() => {
           const error = new Error("Query read timeout");
           process.nextTick(() => {
-            query2.handleError(error, this.connection);
+            query.handleError(error, this.connection);
           });
           queryCallback(error);
-          query2.callback = () => {
+          query.callback = () => {
           };
-          const index = this._queryQueue.indexOf(query2);
+          const index = this._queryQueue.indexOf(query);
           if (index > -1) {
             this._queryQueue.splice(index, 1);
           }
           this._pulseQueryQueue();
         }, readTimeout);
-        query2.callback = (err, res) => {
+        query.callback = (err, res) => {
           clearTimeout(readTimeoutTimer);
           queryCallback(err, res);
         };
       }
       if (!this._queryable) {
-        query2.native = this.native;
+        query.native = this.native;
         process.nextTick(() => {
-          query2.handleError(new Error("Client has encountered a connection error and is not queryable"));
+          query.handleError(new Error("Client has encountered a connection error and is not queryable"));
         });
         return result;
       }
       if (this._ending) {
-        query2.native = this.native;
+        query.native = this.native;
         process.nextTick(() => {
-          query2.handleError(new Error("Client was closed and is not queryable"));
+          query.handleError(new Error("Client was closed and is not queryable"));
         });
         return result;
       }
-      this._queryQueue.push(query2);
+      this._queryQueue.push(query);
       this._pulseQueryQueue();
       return result;
     };
@@ -5411,26 +5411,26 @@ var require_client2 = __commonJS({
       if (this._hasActiveQuery()) {
         return;
       }
-      const query2 = this._queryQueue.shift();
-      if (!query2) {
+      const query = this._queryQueue.shift();
+      if (!query) {
         if (!initialConnection) {
           this.emit("drain");
         }
         return;
       }
-      this._activeQuery = query2;
-      query2.submit(this);
+      this._activeQuery = query;
+      query.submit(this);
       const self = this;
-      query2.once("_done", function() {
+      query.once("_done", function() {
         self._pulseQueryQueue();
       });
     };
-    Client2.prototype.cancel = function(query2) {
-      if (this._activeQuery === query2) {
+    Client2.prototype.cancel = function(query) {
+      if (this._activeQuery === query) {
         this.native.cancel(function() {
         });
-      } else if (this._queryQueue.indexOf(query2) !== -1) {
-        this._queryQueue.splice(this._queryQueue.indexOf(query2), 1);
+      } else if (this._queryQueue.indexOf(query) !== -1) {
+        this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
       }
     };
     Client2.prototype.ref = function() {
@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5579,90 +5579,31 @@ function getPool() {
   }
   return global.__dbPool;
 }
-async function query(text, params) {
+async function checkConnection() {
   const pool = getPool();
-  if (!pool) throw new Error("DATABASE_URL ch\u01B0a \u0111\u01B0\u1EE3c c\u1EA5u h\xECnh");
-  const client = await pool.connect();
+  if (!pool) {
+    return { ok: false, error: "DATABASE_URL ch\u01B0a c\u1EA5u h\xECnh" };
+  }
   try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
-  }
-}
-function isDbConfigured() {
-  return buildConnectionString() !== null;
-}
-
-// api-src/_lib/repositories/propertyRepository.ts
-async function getAllProperties() {
-  const [propsResult, zonesResult] = await Promise.all([
-    query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
-    query(`SELECT property_id, name FROM property_zones ORDER BY property_id, name`)
-  ]);
-  const zonesByProperty = /* @__PURE__ */ new Map();
-  for (const z of zonesResult.rows) {
-    const arr = zonesByProperty.get(z.property_id) ?? [];
-    arr.push(z.name);
-    zonesByProperty.set(z.property_id, arr);
-  }
-  return propsResult.rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    address: p.address ?? "",
-    manager: p.manager ?? "",
-    zones: zonesByProperty.get(p.id) ?? []
-  }));
-}
-function generatePropertyId() {
-  return `PROP_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-async function createProperty(data) {
-  const id = data.id || generatePropertyId();
-  await query(
-    `INSERT INTO properties (id, name, address, manager) VALUES ($1, $2, $3, $4)`,
-    [id, data.name, data.address || null, data.manager || null]
-  );
-  if (data.zones?.length) {
-    for (const z of data.zones) {
-      await query(
-        `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO NOTHING`,
-        [id, z]
-      );
-    }
-  }
-  const all = await getAllProperties();
-  return all.find((p) => p.id === id);
-}
-
-// api-src/_lib/api-data.ts
-async function getProperties() {
-  if (!isDbConfigured()) return [];
-  try {
-    return await getAllProperties();
+    await pool.query("SELECT 1");
+    return { ok: true };
   } catch (err) {
-    console.error("[api-data] getProperties error:", err);
-    throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 }
 
-// api-src/properties/index.ts
-async function handler(req, res) {
-  try {
-    if (req.method === "GET") {
-      const properties = await getProperties();
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(properties);
-    }
-    if (req.method === "POST") {
-      const data = req.body;
-      const created = await createProperty(data);
-      return res.status(201).json(created);
-    }
-    return res.status(405).json({ error: "Method not allowed" });
-  } catch (err) {
-    console.error("[api/properties]", err);
-    return res.status(500).json({ error: "L\u1ED7i khi x\u1EED l\xFD to\xE0 nh\xE0" });
-  }
+// api/health.ts
+async function handler(_req, res) {
+  const dbStatus = await checkConnection();
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).json({
+    ok: dbStatus.ok,
+    service: "CamGuard Pro API",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    database: dbStatus.ok ? "connected" : "disconnected",
+    ...dbStatus.error && { databaseError: dbStatus.error }
+  });
 }
 export {
   handler as default

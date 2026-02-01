@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,75 +5593,143 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api-src/_lib/repositories/propertyRepository.ts
-async function getAllProperties() {
-  const [propsResult, zonesResult] = await Promise.all([
-    query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
-    query(`SELECT property_id, name FROM property_zones ORDER BY property_id, name`)
-  ]);
-  const zonesByProperty = /* @__PURE__ */ new Map();
-  for (const z of zonesResult.rows) {
-    const arr = zonesByProperty.get(z.property_id) ?? [];
-    arr.push(z.name);
-    zonesByProperty.set(z.property_id, arr);
-  }
-  return propsResult.rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    address: p.address ?? "",
-    manager: p.manager ?? "",
-    zones: zonesByProperty.get(p.id) ?? []
-  }));
+// api/_lib/repositories/cameraRepository.ts
+function mapToCamera(row, logs) {
+  return {
+    id: row.id,
+    propertyId: row.property_id,
+    zone: row.zone_name,
+    name: row.camera_name,
+    location: row.location ?? "",
+    ip: row.ip,
+    brand: row.brand,
+    model: row.model ?? "",
+    specs: row.specs ?? "",
+    supplier: row.supplier ?? "",
+    status: row.status,
+    consecutiveDrops: row.consecutive_drops,
+    lastPingTime: Number(row.last_ping_time),
+    notes: row.notes ?? "",
+    logs: logs.map((l) => ({
+      id: l.id,
+      date: l.log_date,
+      description: l.description,
+      technician: l.technician ?? void 0,
+      type: l.type
+    }))
+  };
 }
-function generatePropertyId() {
-  return `PROP_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-async function createProperty(data) {
-  const id = data.id || generatePropertyId();
-  await query(
-    `INSERT INTO properties (id, name, address, manager) VALUES ($1, $2, $3, $4)`,
-    [id, data.name, data.address || null, data.manager || null]
+async function getAllCameras() {
+  const camerasResult = await query(
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes
+     FROM v_cameras_full ORDER BY camera_name`
   );
-  if (data.zones?.length) {
-    for (const z of data.zones) {
-      await query(
-        `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO NOTHING`,
-        [id, z]
-      );
-    }
+  if (camerasResult.rows.length === 0) return [];
+  const cameraIds = camerasResult.rows.map((r) => r.id);
+  const logsResult = await query(
+    `SELECT id, camera_id, log_date::text, description, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
+    [cameraIds]
+  );
+  const logsByCamera = /* @__PURE__ */ new Map();
+  for (const log of logsResult.rows) {
+    const arr = logsByCamera.get(log.camera_id) ?? [];
+    arr.push(log);
+    logsByCamera.set(log.camera_id, arr);
   }
-  const all = await getAllProperties();
-  return all.find((p) => p.id === id);
+  return camerasResult.rows.map(
+    (row) => mapToCamera(row, logsByCamera.get(row.id) ?? [])
+  );
+}
+async function getOrCreateZoneId(propertyId, zoneName) {
+  let result = await query(
+    `SELECT id FROM property_zones WHERE property_id = $1 AND name = $2`,
+    [propertyId, zoneName]
+  );
+  if (result.rows.length > 0) return result.rows[0].id;
+  result = await query(
+    `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO UPDATE SET name = $2 RETURNING id`,
+    [propertyId, zoneName]
+  );
+  return result.rows[0].id;
+}
+function generateCameraId() {
+  return `CAM_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+async function createCamera(data) {
+  const id = data.id || generateCameraId();
+  const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
+  await query(
+    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [
+      id,
+      data.propertyId,
+      zoneId,
+      data.name,
+      data.location || null,
+      data.ip,
+      data.brand,
+      data.model || null,
+      data.specs || null,
+      data.supplier || null,
+      data.status || "ONLINE",
+      data.consecutiveDrops ?? 0,
+      data.lastPingTime ?? Date.now(),
+      data.notes || null
+    ]
+  );
+  const all = await getAllCameras();
+  return all.find((c) => c.id === id);
+}
+async function importCameras(cameras) {
+  const created = [];
+  for (const cam of cameras) {
+    const c = await createCamera({ ...cam, id: cam.id || void 0 });
+    created.push(c);
+  }
+  return created;
 }
 
-// api-src/_lib/api-data.ts
-async function getProperties() {
+// api/_lib/api-data.ts
+async function getCameras() {
   if (!isDbConfigured()) return [];
   try {
-    return await getAllProperties();
+    return await getAllCameras();
   } catch (err) {
-    console.error("[api-data] getProperties error:", err);
+    console.error("[api-data] getCameras error:", err);
     throw err;
   }
 }
 
-// api-src/properties/index.ts
+// api/cameras/index.ts
 async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const properties = await getProperties();
+      const cameras = await getCameras();
       res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(properties);
+      return res.status(200).json(cameras);
     }
     if (req.method === "POST") {
-      const data = req.body;
-      const created = await createProperty(data);
-      return res.status(201).json(created);
+      const body = req.body;
+      if (body.cameras?.length) {
+        const created = await importCameras(body.cameras);
+        return res.status(201).json(created);
+      }
+      if (body.camera) {
+        const created = await createCamera(body.camera);
+        return res.status(201).json(created);
+      }
+      return res.status(400).json({ error: "Thi\u1EBFu camera ho\u1EB7c cameras" });
     }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    console.error("[api/properties]", err);
-    return res.status(500).json({ error: "L\u1ED7i khi x\u1EED l\xFD to\xE0 nh\xE0" });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[api/cameras]", message, err);
+    return res.status(500).json({
+      error: "L\u1ED7i khi x\u1EED l\xFD camera",
+      hint: "Ki\u1EC3m tra tr\xEAn Vercel: Project \u2192 Settings \u2192 Environment Variables \u0111\xE3 th\xEAm DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD (ho\u1EB7c DATABASE_URL). Database ph\u1EA3i cho ph\xE9p k\u1EBFt n\u1ED1i t\u1EEB internet.",
+      detail: process.env.NODE_ENV === "development" ? message : void 0
+    });
   }
 }
 export {

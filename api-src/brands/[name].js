@@ -5546,7 +5546,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// api-src/_lib/db.ts
+// api/_lib/db.ts
 var { Pool: Pool2 } = esm_default;
 function buildConnectionString() {
   const url = process.env.DATABASE_URL;
@@ -5593,75 +5593,27 @@ function isDbConfigured() {
   return buildConnectionString() !== null;
 }
 
-// api-src/_lib/repositories/propertyRepository.ts
-async function getAllProperties() {
-  const [propsResult, zonesResult] = await Promise.all([
-    query(`SELECT id, name, address, manager FROM properties ORDER BY name`),
-    query(`SELECT property_id, name FROM property_zones ORDER BY property_id, name`)
-  ]);
-  const zonesByProperty = /* @__PURE__ */ new Map();
-  for (const z of zonesResult.rows) {
-    const arr = zonesByProperty.get(z.property_id) ?? [];
-    arr.push(z.name);
-    zonesByProperty.set(z.property_id, arr);
-  }
-  return propsResult.rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    address: p.address ?? "",
-    manager: p.manager ?? "",
-    zones: zonesByProperty.get(p.id) ?? []
-  }));
-}
-function generatePropertyId() {
-  return `PROP_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-async function createProperty(data) {
-  const id = data.id || generatePropertyId();
-  await query(
-    `INSERT INTO properties (id, name, address, manager) VALUES ($1, $2, $3, $4)`,
-    [id, data.name, data.address || null, data.manager || null]
-  );
-  if (data.zones?.length) {
-    for (const z of data.zones) {
-      await query(
-        `INSERT INTO property_zones (property_id, name) VALUES ($1, $2) ON CONFLICT (property_id, name) DO NOTHING`,
-        [id, z]
-      );
-    }
-  }
-  const all = await getAllProperties();
-  return all.find((p) => p.id === id);
+// api/_lib/repositories/brandRepository.ts
+async function deleteBrand(name) {
+  await query(`DELETE FROM brands WHERE name = $1`, [name]);
 }
 
-// api-src/_lib/api-data.ts
-async function getProperties() {
-  if (!isDbConfigured()) return [];
-  try {
-    return await getAllProperties();
-  } catch (err) {
-    console.error("[api-data] getProperties error:", err);
-    throw err;
-  }
-}
-
-// api-src/properties/index.ts
+// api/brands/[name].ts
 async function handler(req, res) {
+  const name = req.query.name;
+  if (!name) return res.status(400).json({ error: "Thi\u1EBFu t\xEAn h\xE3ng" });
+  if (!isDbConfigured()) {
+    return res.status(503).json({ error: "Database ch\u01B0a \u0111\u01B0\u1EE3c c\u1EA5u h\xECnh" });
+  }
   try {
-    if (req.method === "GET") {
-      const properties = await getProperties();
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(properties);
-    }
-    if (req.method === "POST") {
-      const data = req.body;
-      const created = await createProperty(data);
-      return res.status(201).json(created);
+    if (req.method === "DELETE") {
+      await deleteBrand(decodeURIComponent(name));
+      return res.status(200).json({ ok: true });
     }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    console.error("[api/properties]", err);
-    return res.status(500).json({ error: "L\u1ED7i khi x\u1EED l\xFD to\xE0 nh\xE0" });
+    console.error("[api/brands/[name]]", err);
+    return res.status(500).json({ error: "L\u1ED7i khi xo\xE1 h\xE3ng" });
   }
 }
 export {
