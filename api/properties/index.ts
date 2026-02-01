@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getProperties } from '../../lib/api-data';
-import * as propertyRepo from '../../lib/repositories/propertyRepository';
-import type { Property } from '../../types';
+import { getProperties } from '../_lib/api-data';
+import * as propertyRepo from '../_lib/repositories/propertyRepository';
+import type { Property } from '../_lib/types';
 
 /**
  * GET /api/properties - Lấy danh sách toà nhà

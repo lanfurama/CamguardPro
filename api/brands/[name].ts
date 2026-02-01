@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { isDbConfigured } from '../../lib/db';
-import * as brandRepo from '../../lib/repositories/brandRepository';
+import { isDbConfigured } from '../_lib/db';
+import * as brandRepo from '../_lib/repositories/brandRepository';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const name = req.query.name as string;

@@ -2,5 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "devCommand": "vite"
+  "devCommand": "vite",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 15,
+      "memory": 1024
+    }
+  }
 }

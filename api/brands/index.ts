@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getBrands } from '../../lib/api-data';
-import * as brandRepo from '../../lib/repositories/brandRepository';
+import { getBrands } from '../_lib/api-data';
+import * as brandRepo from '../_lib/repositories/brandRepository';
 
 /**
  * GET /api/brands - Lấy danh sách hãng camera

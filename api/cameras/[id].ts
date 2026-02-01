@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { isDbConfigured } from '../../lib/db';
-import * as cameraRepo from '../../lib/repositories/cameraRepository';
-import type { Camera } from '../../types';
+import { isDbConfigured } from '../_lib/db';
+import * as cameraRepo from '../_lib/repositories/cameraRepository';
+import type { Camera } from '../_lib/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string;

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { isDbConfigured } from '../../lib/db';
-import * as propertyRepo from '../../lib/repositories/propertyRepository';
-import type { Property } from '../../types';
+import { isDbConfigured } from '../_lib/db';
+import * as propertyRepo from '../_lib/repositories/propertyRepository';
+import type { Property } from '../_lib/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string;

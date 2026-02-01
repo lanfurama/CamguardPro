@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkConnection } from '../lib/db';
+import { checkConnection } from './_lib/db';
 
 /**
  * GET /api/health - Health check + kiểm tra kết nối database

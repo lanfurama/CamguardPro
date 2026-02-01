@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCameras } from '../../lib/api-data';
-import * as cameraRepo from '../../lib/repositories/cameraRepository';
-import type { Camera } from '../../types';
+import { getCameras } from '../_lib/api-data';
+import * as cameraRepo from '../_lib/repositories/cameraRepository';
+import type { Camera } from '../_lib/types';
 
 /**
  * GET /api/cameras - Lấy danh sách camera
@@ -30,7 +30,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('[api/cameras]', err);
-    return res.status(500).json({ error: 'Lỗi khi xử lý camera' });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[api/cameras]', message, err);
+    return res.status(500).json({
+      error: 'Lỗi khi xử lý camera',
+      hint:
+        'Kiểm tra trên Vercel: Project → Settings → Environment Variables đã thêm DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD (hoặc DATABASE_URL). Database phải cho phép kết nối từ internet.',
+      detail: process.env.NODE_ENV === 'development' ? message : undefined,
+    });
   }
 }
