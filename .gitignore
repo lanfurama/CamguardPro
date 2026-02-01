@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# API bundle output (tạo bởi scripts/build-api.mjs)
+.api-build
+api/**/*.js
 *.local
 .env
 .env.*

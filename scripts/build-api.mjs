@@ -1,7 +1,7 @@
 /**
  * Bundle mỗi API handler (TS) thành 1 file .js với toàn bộ _lib inline.
- * Chạy trên Vercel build để deploy chỉ file .js, tránh lỗi ERR_MODULE_NOT_FOUND.
- * Sau khi bundle (trên Vercel) xóa source .ts và _lib để chỉ chạy .js.
+ * Output vào .api-build/ để tránh conflict path với api/*.ts.
+ * Trên Vercel: xóa hết api/, rồi copy .api-build/ -> api/ để chỉ còn .js.
  */
 import * as esbuild from 'esbuild';
 import { fileURLToPath } from 'url';
@@ -10,6 +10,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
+const apiBuildDir = path.join(root, '.api-build');
 
 const entries = [
   'api/health.ts',
@@ -31,36 +32,43 @@ function rmDir(dir) {
   fs.rmdirSync(dir);
 }
 
-function deleteApiSources() {
-  const apiDir = path.join(root, 'api');
-  for (const name of fs.readdirSync(apiDir)) {
-    const full = path.join(apiDir, name);
-    if (name === '_lib') {
-      rmDir(full);
-      console.log('Removed api/_lib');
-    } else if (name.endsWith('.ts')) {
-      fs.unlinkSync(full);
-      console.log('Removed', path.relative(root, full));
-    } else if (fs.statSync(full).isDirectory()) {
-      for (const sub of fs.readdirSync(full)) {
-        const subFull = path.join(full, sub);
-        if (sub.endsWith('.ts')) {
-          fs.unlinkSync(subFull);
-          console.log('Removed', path.relative(root, subFull));
-        }
-      }
+function copyDir(src, dest) {
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+  for (const name of fs.readdirSync(src)) {
+    const srcPath = path.join(src, name);
+    const destPath = path.join(dest, name);
+    if (fs.statSync(srcPath).isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
     }
   }
 }
 
+function replaceApiWithBuild() {
+  const apiDir = path.join(root, 'api');
+  for (const name of fs.readdirSync(apiDir)) {
+    const full = path.join(apiDir, name);
+    if (fs.statSync(full).isDirectory()) rmDir(full);
+    else fs.unlinkSync(full);
+  }
+  copyDir(apiBuildDir, apiDir);
+  rmDir(apiBuildDir);
+  console.log('Replaced api/ with bundled .js only');
+}
+
 async function main() {
+  if (fs.existsSync(apiBuildDir)) rmDir(apiBuildDir);
+  fs.mkdirSync(apiBuildDir, { recursive: true });
+
   for (const entry of entries) {
     const entryPath = path.join(root, entry);
     if (!fs.existsSync(entryPath)) {
       console.warn('Skip (not found):', entry);
       continue;
     }
-    const outfile = path.join(root, entry.replace(/\.ts$/, '.js'));
+    const relOut = entry.replace(/^api\//, '').replace(/\.ts$/, '.js');
+    const outfile = path.join(apiBuildDir, relOut);
     const outDir = path.dirname(outfile);
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
@@ -76,7 +84,8 @@ async function main() {
     });
     console.log('Bundled:', entry, '->', path.relative(root, outfile));
   }
-  if (process.env.VERCEL === '1') deleteApiSources();
+
+  if (process.env.VERCEL === '1') replaceApiWithBuild();
 }
 
 main().catch((err) => {
