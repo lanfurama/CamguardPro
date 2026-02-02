@@ -5569,9 +5569,11 @@ function getPool() {
   const url = buildConnectionString();
   if (!url) return null;
   if (!global.__dbPool) {
+    const forceNoSsl = process.env.DB_SSL === "false";
+    const useSsl = !forceNoSsl && url.includes("sslmode=require");
     global.__dbPool = new Pool2({
       connectionString: url,
-      ssl: url.includes("sslmode=require") ? { rejectUnauthorized: false } : false,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
       max: process.env.NODE_ENV === "production" ? 2 : 10,
       idleTimeoutMillis: 1e4,
       connectionTimeoutMillis: 5e3
@@ -5610,24 +5612,29 @@ function mapToCamera(row, logs) {
     consecutiveDrops: row.consecutive_drops,
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? "",
+    isNew: row.is_new,
     logs: logs.map((l) => ({
       id: l.id,
       date: l.log_date,
       description: l.description,
       technician: l.technician ?? void 0,
-      type: l.type
+      type: l.type,
+      errorTime: l.error_time != null ? l.error_time instanceof Date ? l.error_time.toISOString() : String(l.error_time) : void 0,
+      fixedTime: l.fixed_time != null ? l.fixed_time instanceof Date ? l.fixed_time.toISOString() : String(l.fixed_time) : void 0,
+      reason: l.reason ?? void 0,
+      solution: l.solution ?? void 0
     }))
   };
 }
 async function getAllCameras() {
   const camerasResult = await query(
-    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
      FROM v_cameras_full ORDER BY camera_name`
   );
   if (camerasResult.rows.length === 0) return [];
   const cameraIds = camerasResult.rows.map((r) => r.id);
   const logsResult = await query(
-    `SELECT id, camera_id, log_date::text, description, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
+    `SELECT id, camera_id, log_date::text, error_time, fixed_time, description, reason, solution, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
     [cameraIds]
   );
   const logsByCamera = /* @__PURE__ */ new Map();
@@ -5659,8 +5666,8 @@ async function createCamera(data) {
   const id = data.id || generateCameraId();
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
   await query(
-    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       id,
       data.propertyId,
@@ -5675,7 +5682,8 @@ async function createCamera(data) {
       data.status || "ONLINE",
       data.consecutiveDrops ?? 0,
       data.lastPingTime ?? Date.now(),
-      data.notes || null
+      data.notes || null,
+      data.isNew ?? false
     ]
   );
   if (data.logs?.length) {
@@ -5686,10 +5694,21 @@ async function createCamera(data) {
       let logDate = (log.date || "").toString().trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) logDate = today;
       await query(
-        `INSERT INTO maintenance_logs (id, camera_id, log_date, description, technician, type)
-         VALUES ($1, $2, $3::date, $4, $5, $6)
+        `INSERT INTO maintenance_logs (id, camera_id, log_date, error_time, fixed_time, description, reason, solution, technician, type)
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO NOTHING`,
-        [logId, id, logDate, log.description || "", log.technician || null, log.type || "CHECKUP"]
+        [
+          logId,
+          id,
+          logDate,
+          log.errorTime ? new Date(log.errorTime).toISOString() : null,
+          log.fixedTime ? new Date(log.fixedTime).toISOString() : null,
+          log.description || "",
+          log.reason ?? null,
+          log.solution ?? null,
+          log.technician || null,
+          log.type || "CHECKUP"
+        ]
       );
     }
   }

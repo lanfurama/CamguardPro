@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Layout } from './components/Layout';
-import { Camera } from './types';
+import { Camera, Property } from './types';
 import { CameraList } from './components/CameraList';
 import { Dashboard } from './components/Dashboard';
 import { CameraFormModal } from './components/CameraFormModal';
+import { PropertyFormModal } from './components/PropertyFormModal';
 import { ImportModal } from './components/ImportModal';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { AIReportPanel } from './components/AIReportPanel';
@@ -12,6 +13,9 @@ import { AppProvider, useApp } from './context/AppContext';
 function AppContent() {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
+  const [defaultPropertyIdForNewCamera, setDefaultPropertyIdForNewCamera] = useState<string | null>(null);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const {
@@ -50,6 +54,7 @@ function AppContent() {
     if (ok) {
       setShowCameraModal(false);
       setEditingCamera(null);
+      setDefaultPropertyIdForNewCamera(null);
     }
   };
 
@@ -106,11 +111,20 @@ function AppContent() {
             setShowCameraModal(true);
           }}
           onDeleteCamera={handleDeleteCamera}
-          onAddCamera={() => {
+          onAddCamera={(propertyId) => {
             setEditingCamera(null);
+            setDefaultPropertyIdForNewCamera(propertyId ?? null);
             setShowCameraModal(true);
           }}
           onImportCamera={() => setShowImportModal(true)}
+          onEditProperty={activeTab === 'properties' ? (prop) => {
+            setEditingProperty(prop);
+            setShowPropertyModal(true);
+          } : undefined}
+          onAddProperty={activeTab === 'properties' ? () => {
+            setEditingProperty(null);
+            setShowPropertyModal(true);
+          } : undefined}
         />
       )}
 
@@ -132,7 +146,11 @@ function AppContent() {
           camera={editingCamera}
           properties={properties}
           brands={brands}
-          onClose={() => setShowCameraModal(false)}
+          defaultPropertyId={defaultPropertyIdForNewCamera ?? undefined}
+          onClose={() => {
+            setShowCameraModal(false);
+            setDefaultPropertyIdForNewCamera(null);
+          }}
           onSave={handleSaveCameraAndClose}
         />
       )}
@@ -142,6 +160,26 @@ function AppContent() {
           properties={properties}
           onClose={() => setShowImportModal(false)}
           onImport={handleImportCameras}
+        />
+      )}
+
+      {showPropertyModal && (
+        <PropertyFormModal
+          property={editingProperty}
+          onSave={async (prop) => {
+            const ok = await handleSaveProperty(prop);
+            if (ok) {
+              setShowPropertyModal(false);
+              setEditingProperty(null);
+              refetchProperties();
+            }
+            return ok;
+          }}
+          onClose={() => {
+            setShowPropertyModal(false);
+            setEditingProperty(null);
+          }}
+          onDelete={handleDeleteProperty}
         />
       )}
     </Layout>

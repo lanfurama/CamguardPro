@@ -6,18 +6,21 @@ interface Props {
   camera?: Camera | null;
   properties: Property[];
   brands: string[];
+  defaultPropertyId?: string;
   onSave: (camera: Camera) => void | Promise<void>;
   onClose: () => void;
 }
 
-export const CameraFormModal: React.FC<Props> = ({ camera, properties, brands, onSave, onClose }) => {
+export const CameraFormModal: React.FC<Props> = ({ camera, properties, brands, defaultPropertyId, onSave, onClose }) => {
   const isEditing = !!camera;
-  
+
+  const initialPropertyId = defaultPropertyId || properties[0]?.id || '';
+
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Camera>>({
     name: '',
     ip: '',
-    propertyId: properties[0]?.id || '',
+    propertyId: initialPropertyId,
     zone: '',
     brand: brands[0] || '',
     model: '',
@@ -34,8 +37,10 @@ export const CameraFormModal: React.FC<Props> = ({ camera, properties, brands, o
   useEffect(() => {
     if (camera) {
       setFormData(camera);
+    } else if (defaultPropertyId) {
+      setFormData(prev => ({ ...prev, propertyId: defaultPropertyId }));
     }
-  }, [camera]);
+  }, [camera, defaultPropertyId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

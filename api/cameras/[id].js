@@ -5569,9 +5569,11 @@ function getPool() {
   const url = buildConnectionString();
   if (!url) return null;
   if (!global.__dbPool) {
+    const forceNoSsl = process.env.DB_SSL === "false";
+    const useSsl = !forceNoSsl && url.includes("sslmode=require");
     global.__dbPool = new Pool2({
       connectionString: url,
-      ssl: url.includes("sslmode=require") ? { rejectUnauthorized: false } : false,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
       max: process.env.NODE_ENV === "production" ? 2 : 10,
       idleTimeoutMillis: 1e4,
       connectionTimeoutMillis: 5e3
@@ -5610,24 +5612,29 @@ function mapToCamera(row, logs) {
     consecutiveDrops: row.consecutive_drops,
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? "",
+    isNew: row.is_new,
     logs: logs.map((l) => ({
       id: l.id,
       date: l.log_date,
       description: l.description,
       technician: l.technician ?? void 0,
-      type: l.type
+      type: l.type,
+      errorTime: l.error_time != null ? l.error_time instanceof Date ? l.error_time.toISOString() : String(l.error_time) : void 0,
+      fixedTime: l.fixed_time != null ? l.fixed_time instanceof Date ? l.fixed_time.toISOString() : String(l.fixed_time) : void 0,
+      reason: l.reason ?? void 0,
+      solution: l.solution ?? void 0
     }))
   };
 }
 async function getAllCameras() {
   const camerasResult = await query(
-    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
      FROM v_cameras_full ORDER BY camera_name`
   );
   if (camerasResult.rows.length === 0) return [];
   const cameraIds = camerasResult.rows.map((r) => r.id);
   const logsResult = await query(
-    `SELECT id, camera_id, log_date::text, description, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
+    `SELECT id, camera_id, log_date::text, error_time, fixed_time, description, reason, solution, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
     [cameraIds]
   );
   const logsByCamera = /* @__PURE__ */ new Map();
@@ -5655,7 +5662,7 @@ async function getOrCreateZoneId(propertyId, zoneName) {
 async function updateCamera(data) {
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
   await query(
-    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14 WHERE id=$1`,
+    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14, is_new=$15 WHERE id=$1`,
     [
       data.id,
       data.propertyId,
@@ -5670,7 +5677,8 @@ async function updateCamera(data) {
       data.status,
       data.consecutiveDrops ?? 0,
       data.lastPingTime ?? Date.now(),
-      data.notes || null
+      data.notes || null,
+      data.isNew ?? false
     ]
   );
   const all = await getAllCameras();
