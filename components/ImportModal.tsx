@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
-import { X, Upload, Copy, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { X, Upload, Copy, AlertCircle, FileSpreadsheet, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Camera, Property } from '../types';
 import { STATUS_EXCEL_MAP } from '../constants';
+
+const TEMPLATE_SHEET_NAME = 'Cameras';
+const TEMPLATE_FILENAME = 'CamguardPro_Import_Camera_Mau.xlsx';
+
+/** Tạo và tải file Excel mẫu để người dùng biết định dạng import */
+function downloadTemplateExcel(): void {
+  const headers = ['Tên Camera', 'IP', 'Mã Toà Nhà', 'Khu Vực', 'Hãng', 'Model', 'Ghi chú'];
+  const sampleRows = [
+    ['Cam Sảnh 1', '192.168.1.100', 'PROP_001', 'Sảnh chính', 'Hikvision', 'DS-2CD', 'Camera quan sát cửa chính'],
+    ['Cam Kho A-01', '192.168.1.101', 'PROP_002', 'Kho A', 'Dahua', 'IPC-HFW', 'Cửa nhập hàng'],
+  ];
+  const wsData = [headers, ...sampleRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, TEMPLATE_SHEET_NAME);
+  XLSX.writeFile(wb, TEMPLATE_FILENAME);
+}
 
 interface Props {
   properties: Property[];
@@ -28,6 +45,57 @@ function mapExcelStatusToApp(status: string): 'ONLINE' | 'OFFLINE' | 'MAINTENANC
   return 'ONLINE';
 }
 
+function parseSimpleSheet(wb: XLSX.WorkBook, ts: number): Camera[] | null {
+  const sheetNames = wb.SheetNames;
+  const templateNames = [TEMPLATE_SHEET_NAME, 'Danh sách camera', 'Cameras', 'Sheet1'];
+  for (const name of [...templateNames, ...sheetNames]) {
+    const sh = wb.Sheets[name];
+    if (!sh) continue;
+    const arr = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', raw: false }) as string[][];
+    if (arr.length < 2) continue;
+    const headerRow = (arr[0] || []).map((c: unknown) => String(c ?? '').trim());
+    const idxName = headerRow.findIndex(h => /tên\s*camera|name/i.test(h));
+    const idxIp = headerRow.findIndex(h => /^\s*ip\s*$/i.test(h));
+    const idxProp = headerRow.findIndex(h => /mã\s*toà\s*nhà|property|propertyid/i.test(h));
+    const idxZone = headerRow.findIndex(h => /khu\s*vực|zone/i.test(h));
+    const idxBrand = headerRow.findIndex(h => /hãng|brand/i.test(h));
+    const idxModel = headerRow.findIndex(h => /model/i.test(h));
+    const idxNotes = headerRow.findIndex(h => /ghi\s*chú|notes/i.test(h));
+    if (idxName === -1 || idxProp === -1) continue;
+    const cameras: Camera[] = [];
+    for (let i = 1; i < arr.length; i++) {
+      const row = arr[i] || [];
+      const name = (row[idxName] ?? '').toString().trim();
+      const ip = idxIp >= 0 ? (row[idxIp] ?? '').toString().trim() : 'TBD';
+      const propertyId = (row[idxProp] ?? '').toString().trim();
+      if (!name && !propertyId) continue;
+      const zone = idxZone >= 0 ? (row[idxZone] ?? '').toString().trim() : '';
+      const brand = idxBrand >= 0 ? (row[idxBrand] ?? '').toString().trim() || 'Unknown' : 'Unknown';
+      const model = idxModel >= 0 ? (row[idxModel] ?? '').toString().trim() : '';
+      const notes = idxNotes >= 0 ? (row[idxNotes] ?? '').toString().trim() || 'Import từ Excel' : 'Import từ Excel';
+      cameras.push({
+        id: `CAM_EXCEL_${ts}_${name}_${i}`,
+        name: name || `Camera ${i}`,
+        ip: ip || 'TBD',
+        propertyId: propertyId || 'PROP_001',
+        zone: zone || name,
+        location: zone || name,
+        brand,
+        model,
+        specs: '',
+        supplier: 'Import Excel',
+        status: 'ONLINE',
+        consecutiveDrops: 0,
+        lastPingTime: Date.now(),
+        logs: [],
+        notes,
+      });
+    }
+    if (cameras.length > 0) return cameras;
+  }
+  return null;
+}
+
 function parseExcelFile(file: File): Promise<Camera[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -41,6 +109,12 @@ function parseExcelFile(file: File): Promise<Camera[]> {
         const wb = XLSX.read(data, { type: 'binary', raw: false });
         const cameras: Camera[] = [];
         const ts = Date.now();
+
+        const simple = parseSimpleSheet(wb, ts);
+        if (simple && simple.length > 0) {
+          resolve(simple);
+          return;
+        }
 
         for (const sheetName of ['RESORT', 'VILLAS', 'ARIYANA']) {
           const propId = EXCEL_SHEET_TO_PROP[sheetName];
@@ -211,16 +285,18 @@ Cam Kho 2,192.168.1.101,PROP_002,Kho A,Dahua,IPC-HFW`;
       setError('Vui lòng chọn file Excel (.xlsx).');
       return;
     }
-    const missing = ['PROP_RESORT', 'PROP_VILLAS', 'PROP_ARIYANA'].filter(id => !properties.some(p => p.id === id));
-    if (missing.length) {
-      setError(`Chưa có toà nhà: ${missing.join(', ')}. Chạy seed database/seed-furama-sites.sql trước.`);
-      return;
-    }
     setImporting(true);
     try {
       const cameras = await parseExcelFile(excelFile);
       if (cameras.length === 0) {
-        setError('Không tìm thấy dòng camera nào trong file (sheet RESORT, VILLAS, ARIYANA).');
+        setError('Không tìm thấy dòng camera nào. Dùng file mẫu (sheet Cameras) hoặc sheet RESORT/VILLAS/ARIYANA.');
+        setImporting(false);
+        return;
+      }
+      const missingProps = [...new Set(cameras.map(c => c.propertyId))].filter(id => !properties.some(p => p.id === id));
+      if (missingProps.length) {
+        setError(`Chưa có toà nhà: ${missingProps.join(', ')}. Thêm toà nhà trước hoặc dùng đúng Mã Toà Nhà (xem danh sách toà nhà bên dưới).`);
+        setImporting(false);
         return;
       }
       const result = await onImport(cameras);
@@ -291,9 +367,24 @@ Cam Kho 2,192.168.1.101,PROP_002,Kho A,Dahua,IPC-HFW`;
           {mode === 'excel' && (
             <>
               <div className="bg-amber-50 p-3 mb-3 text-xs text-amber-800 border border-amber-100">
-                <p className="font-bold mb-0.5 flex items-center"><FileSpreadsheet size={12} className="mr-1"/> File Check list Camera All Site.xlsx</p>
-                <p>Chọn file Excel có 3 sheet: <strong>RESORT</strong>, <strong>VILLAS</strong>, <strong>ARIYANA</strong>. Mỗi dòng (No, Position, Status, Error Time, FixedTime, Reason, Done By, Solution) sẽ tạo 1 camera.</p>
-                <p className="mt-1 text-[11px]">Map Status Excel → App: Ok/OK → ONLINE; Pending/Lỗi/Mất → WARNING; Done/Repair → MAINTENANCE. Chi tiết khác ghi vào Ghi chú (Notes).</p>
+                <p className="font-bold mb-0.5 flex items-center"><FileSpreadsheet size={12} className="mr-1"/> Import file Excel</p>
+                <p>Hỗ trợ 2 định dạng:</p>
+                <ul className="list-disc ml-4 mt-0.5 space-y-0.5">
+                  <li><strong>File mẫu (1 sheet):</strong> Cột Tên Camera, IP, Mã Toà Nhà, Khu Vực, Hãng, Model, Ghi chú. Tải file mẫu bên dưới để xem định dạng.</li>
+                  <li><strong>Check list Furama (3 sheet):</strong> RESORT, VILLAS, ARIYANA với No, Position, Status, Error Time, FixedTime, Reason, Done By, Solution.</li>
+                </ul>
+                <button
+                  type="button"
+                  onClick={downloadTemplateExcel}
+                  className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium rounded border border-amber-200 text-xs"
+                >
+                  <Download size={14} />
+                  Tải file mẫu Excel ({TEMPLATE_FILENAME})
+                </button>
+              </div>
+              <div className="mb-3 text-xs text-slate-500">
+                <strong className="text-slate-700">Mã Toà Nhà hiện có:</strong>
+                <pre className="mt-0.5 p-1.5 bg-slate-100 max-h-16 overflow-y-auto text-[11px]">{propertyList}</pre>
               </div>
               <div className="mb-3">
                 <label className="block text-xs font-medium text-slate-700 mb-1">Chọn file .xlsx</label>
@@ -305,7 +396,7 @@ Cam Kho 2,192.168.1.101,PROP_002,Kho A,Dahua,IPC-HFW`;
                 />
                 {excelFile && <p className="mt-0.5 text-[11px] text-slate-500">{excelFile.name}</p>}
               </div>
-              <p className="text-[11px] text-slate-500">Cần có 3 toà nhà: PROP_RESORT, PROP_VILLAS, PROP_ARIYANA (chạy <code className="bg-slate-100 px-1">database/seed-furama-sites.sql</code> nếu chưa có).</p>
+              <p className="text-[11px] text-slate-500">Điền đúng Mã Toà Nhà từ danh sách trên (hoặc thêm toà nhà mới trước khi import).</p>
             </>
           )}
 

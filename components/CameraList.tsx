@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Camera, Property } from '../types';
 import type { CameraStatus } from '../types';
-import { Search, Info, Zap, Plus, Upload, Trash2, Edit, Building2, Edit2, Filter, X } from 'lucide-react';
+import { Search, Info, Zap, Plus, Upload, Trash2, Edit, Building2, Edit2, Filter, X, FileSpreadsheet } from 'lucide-react';
 import { CameraDetailModal } from './CameraDetailModal';
 
 interface Props {
@@ -316,9 +316,9 @@ export const CameraList: React.FC<Props> = ({
                     Thêm Toà Nhà
                   </button>
                 )}
-                 <button onClick={() => onAddCamera()} className="flex items-center px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm font-medium text-xs">
-                    <Upload size={14} className="mr-1.5" />
-                    Import Template
+                 <button onClick={onImportCamera} className="flex items-center px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm font-medium text-xs">
+                    <FileSpreadsheet size={14} className="mr-1.5" />
+                    Import Excel
                 </button>
                 <button onClick={() => onAddCamera()} className="flex items-center px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm font-medium text-xs">
                     <Plus size={14} className="mr-1.5" />
@@ -434,7 +434,7 @@ export const CameraList: React.FC<Props> = ({
 
         {!camerasLoading && !camerasError && !filterByProperty && filteredCameras.length === 0 && (
           <div className="py-10 text-center bg-white border border-slate-200 p-4">
-            <p className="text-slate-500 text-sm">Chưa có camera nào. Nhấn &quot;Thêm Camera&quot; hoặc &quot;Import Template&quot; để bắt đầu.</p>
+            <p className="text-slate-500 text-sm">Chưa có camera nào. Nhấn &quot;Thêm Camera&quot; hoặc &quot;Import Excel&quot; để bắt đầu.</p>
             <p className="mt-2 text-xs text-slate-500 max-w-lg mx-auto">
               API trả 200 nhưng danh sách rỗng? Đảm bảo đã chạy <code className="bg-slate-100 px-1">database/schema.sql</code> (có seed camera). Nếu dùng Furama thì chạy thêm <code className="bg-slate-100 px-1">database/seed-furama-sites.sql</code>.
             </p>
