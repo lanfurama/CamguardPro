@@ -20,13 +20,18 @@ interface CameraRow {
   consecutive_drops: number;
   last_ping_time: string;
   notes: string | null;
+  is_new?: boolean;
 }
 
 interface LogRow {
   id: string;
   camera_id: string;
   log_date: string;
+  error_time: string | Date | null;
+  fixed_time: string | Date | null;
   description: string;
+  reason: string | null;
+  solution: string | null;
   technician: string | null;
   type: string;
 }
@@ -47,27 +52,76 @@ function mapToCamera(row: CameraRow, logs: LogRow[]): Camera {
     consecutiveDrops: row.consecutive_drops,
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? '',
+    isNew: row.is_new ?? false,
     logs: logs.map((l) => ({
       id: l.id,
       date: l.log_date,
       description: l.description,
       technician: l.technician ?? undefined,
       type: l.type as 'REPAIR' | 'CHECKUP' | 'INSTALLATION',
+      errorTime: l.error_time != null ? (l.error_time instanceof Date ? l.error_time.toISOString() : String(l.error_time)) : undefined,
+      fixedTime: l.fixed_time != null ? (l.fixed_time instanceof Date ? l.fixed_time.toISOString() : String(l.fixed_time)) : undefined,
+      reason: l.reason ?? undefined,
+      solution: l.solution ?? undefined,
     })),
   };
 }
 
+/** Row từ view v_cameras_full hoặc từ query fallback (cameras + JOIN) */
+interface CameraRowLike {
+  id: string;
+  property_id: string;
+  zone_name: string;
+  camera_name: string;
+  location: string | null;
+  ip: string;
+  brand: string;
+  model: string | null;
+  specs: string | null;
+  supplier: string | null;
+  status: string;
+  consecutive_drops: number;
+  last_ping_time: string | number;
+  notes: string | null;
+  is_new?: boolean;
+}
+
+async function fetchCameraRows(): Promise<CameraRowLike[]> {
+  try {
+    const result = await query<CameraRowLike>(
+      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
+       FROM v_cameras_full ORDER BY camera_name`
+    );
+    if (result.rows.length > 0) return result.rows;
+    const direct = await query<CameraRowLike>(
+      `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+       FROM cameras c
+       LEFT JOIN property_zones pz ON pz.id = c.zone_id
+       ORDER BY c.name`
+    );
+    return direct.rows;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('v_cameras_full') || msg.includes('does not exist') || msg.includes('relation')) {
+      const fallback = await query<CameraRowLike>(
+        `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+         FROM cameras c
+         LEFT JOIN property_zones pz ON pz.id = c.zone_id
+         ORDER BY c.name`
+      );
+      return fallback.rows;
+    }
+    throw err;
+  }
+}
+
 export async function getAllCameras(): Promise<Camera[]> {
-  const camerasResult = await query<CameraRow>(
-    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes
-     FROM v_cameras_full ORDER BY camera_name`
-  );
+  const rows = await fetchCameraRows();
+  if (rows.length === 0) return [];
 
-  if (camerasResult.rows.length === 0) return [];
-
-  const cameraIds = camerasResult.rows.map((r) => r.id);
+  const cameraIds = rows.map((r) => r.id);
   const logsResult = await query<LogRow>(
-    `SELECT id, camera_id, log_date::text, description, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
+    `SELECT id, camera_id, log_date::text, error_time, fixed_time, description, reason, solution, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
     [cameraIds]
   );
 
@@ -78,8 +132,14 @@ export async function getAllCameras(): Promise<Camera[]> {
     logsByCamera.set(log.camera_id, arr);
   }
 
-  return camerasResult.rows.map((row) =>
-    mapToCamera(row, logsByCamera.get(row.id) ?? [])
+  return rows.map((row) =>
+    mapToCamera(
+      {
+        ...row,
+        last_ping_time: String(row.last_ping_time ?? ''),
+      } as CameraRow,
+      logsByCamera.get(row.id) ?? []
+    )
   );
 }
 
@@ -108,8 +168,8 @@ export async function createCamera(data: Camera): Promise<Camera> {
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
 
   await query(
-    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       id,
       data.propertyId,
@@ -125,8 +185,36 @@ export async function createCamera(data: Camera): Promise<Camera> {
       data.consecutiveDrops ?? 0,
       data.lastPingTime ?? Date.now(),
       data.notes || null,
+      data.isNew ?? false,
     ]
   );
+
+  if (data.logs?.length) {
+    const today = new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < data.logs.length; i++) {
+      const log = data.logs[i];
+      const logId = log.id || `LOG_${id}_${i}`;
+      let logDate = (log.date || '').toString().trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) logDate = today;
+      await query(
+        `INSERT INTO maintenance_logs (id, camera_id, log_date, error_time, fixed_time, description, reason, solution, technician, type)
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          logId,
+          id,
+          logDate,
+          log.errorTime ? new Date(log.errorTime).toISOString() : null,
+          log.fixedTime ? new Date(log.fixedTime).toISOString() : null,
+          log.description || '',
+          log.reason ?? null,
+          log.solution ?? null,
+          log.technician || null,
+          log.type || 'CHECKUP',
+        ]
+      );
+    }
+  }
 
   const all = await getAllCameras();
   return all.find((c) => c.id === id)!;
@@ -136,7 +224,7 @@ export async function updateCamera(data: Camera): Promise<Camera> {
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
 
   await query(
-    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14 WHERE id=$1`,
+    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14, is_new=$15 WHERE id=$1`,
     [
       data.id,
       data.propertyId,
@@ -152,6 +240,7 @@ export async function updateCamera(data: Camera): Promise<Camera> {
       data.consecutiveDrops ?? 0,
       data.lastPingTime ?? Date.now(),
       data.notes || null,
+      data.isNew ?? false,
     ]
   );
 

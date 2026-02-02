@@ -10,7 +10,12 @@ export function useBrands() {
     setLoading(true);
     setError(null);
     try {
-      const data = await brandsApi.getAll();
+      const raw = await brandsApi.getAll();
+      const data: string[] = Array.isArray(raw)
+        ? raw
+        : (raw && typeof raw === 'object' && Array.isArray((raw as { brands?: unknown }).brands)
+          ? (raw as { brands: string[] }).brands
+          : []);
       setBrands(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không tải được danh sách hãng';

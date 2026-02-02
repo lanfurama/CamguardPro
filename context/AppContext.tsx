@@ -21,6 +21,7 @@ interface AppContextValue {
   cameras: Camera[];
   camerasLoading: boolean;
   camerasError: string | null;
+  refetchCameras: () => Promise<void>;
   simulatingCameraIds: Set<string>;
   handleSaveCamera: (data: Camera, editingCamera: Camera | null) => void;
   handleDeleteCamera: (id: string) => void;
@@ -32,6 +33,7 @@ interface AppContextValue {
   properties: Property[];
   propertiesLoading: boolean;
   propertiesError: string | null;
+  refetchProperties: () => Promise<void>;
   handleSaveProperty: (prop: Property) => void;
   handleDeleteProperty: (id: string) => void;
 
@@ -69,6 +71,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cameras: camerasData.cameras,
     camerasLoading: camerasData.loading,
     camerasError: camerasData.error,
+    refetchCameras: camerasData.refetch,
     simulatingCameraIds: camerasData.simulatingCameraIds,
     handleSaveCamera: (data, editing) => camerasData.handleSaveCamera(data, editing),
     handleDeleteCamera: camerasData.handleDeleteCamera,
@@ -78,6 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     properties: propertiesData.properties,
     propertiesLoading: propertiesData.loading,
     propertiesError: propertiesData.error,
+    refetchProperties: propertiesData.refetch,
     handleSaveProperty: propertiesData.handleSaveProperty,
     handleDeleteProperty: propertiesData.handleDeleteProperty,
     brands: brandsData.brands,

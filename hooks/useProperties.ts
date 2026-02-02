@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Property } from '../types';
 import { propertiesApi } from '../services/api';
+import { parsePropertiesResponse } from '../lib/api-response';
 
 type AddNotificationFn = (msg: string, type: 'ERROR' | 'INFO' | 'WARNING') => void;
 
@@ -13,7 +14,8 @@ export function useProperties(addNotification: AddNotificationFn) {
     setLoading(true);
     setError(null);
     try {
-      const data = await propertiesApi.getAll();
+      const raw = await propertiesApi.getAll();
+      const data = parsePropertiesResponse(raw);
       setProperties(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không tải được danh sách toà nhà';

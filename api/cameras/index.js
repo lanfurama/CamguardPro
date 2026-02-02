@@ -5678,6 +5678,21 @@ async function createCamera(data) {
       data.notes || null
     ]
   );
+  if (data.logs?.length) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    for (let i = 0; i < data.logs.length; i++) {
+      const log = data.logs[i];
+      const logId = log.id || `LOG_${id}_${i}`;
+      let logDate = (log.date || "").toString().trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) logDate = today;
+      await query(
+        `INSERT INTO maintenance_logs (id, camera_id, log_date, description, technician, type)
+         VALUES ($1, $2, $3::date, $4, $5, $6)
+         ON CONFLICT (id) DO NOTHING`,
+        [logId, id, logDate, log.description || "", log.technician || null, log.type || "CHECKUP"]
+      );
+    }
+  }
   const all = await getAllCameras();
   return all.find((c) => c.id === id);
 }

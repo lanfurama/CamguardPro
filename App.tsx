@@ -22,6 +22,8 @@ function AppContent() {
     cameras,
     camerasLoading,
     camerasError,
+    refetchCameras,
+    refetchProperties,
     properties,
     propertiesLoading,
     propertiesError,
@@ -61,8 +63,20 @@ function AppContent() {
       {activeTab === 'dashboard' && (
         <>
           {camerasError && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {camerasError}
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700">
+              <p className="font-medium text-sm">{camerasError}</p>
+              {(camerasError.includes('Database') || camerasError.includes('cấu hình') || camerasError.includes('503')) && (
+                <p className="mt-1.5 text-xs opacity-90">
+                  Kiểm tra: (1) File <code className="bg-red-100 px-1">.env</code> có <code>DATABASE_URL</code> hoặc <code>DB_HOST, DB_NAME, DB_USER, DB_PASSWORD</code> — (2) Đã chạy <code>database/schema.sql</code> và <code>database/seed-furama-sites.sql</code> (nếu dùng Furama). Chạy dev bằng <code>npm run dev</code> để API đọc .env.
+                </p>
+              )}
+              <button type="button" onClick={() => { refetchCameras(); refetchProperties(); }} className="mt-2 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium">Thử lại</button>
+            </div>
+          )}
+          {!camerasLoading && !propertiesLoading && !camerasError && !propertiesError && cameras.length === 0 && properties.length === 0 && (
+            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <p className="font-medium">Chưa có dữ liệu từ database.</p>
+              <p className="mt-1 text-xs">Nếu bạn dùng PostgreSQL: cấu hình <code className="bg-amber-100 px-1">.env</code>, chạy <code>database/schema.sql</code> rồi <code>database/seed-furama-sites.sql</code> (nếu cần). Sau đó tải lại trang.</p>
             </div>
           )}
           <AIReportPanel
@@ -80,6 +94,7 @@ function AppContent() {
           cameras={cameras}
           camerasLoading={camerasLoading}
           camerasError={camerasError}
+          onRefetchCameras={refetchCameras}
           properties={properties}
           propertiesLoading={propertiesLoading}
           simulatingIds={simulatingCameraIds}

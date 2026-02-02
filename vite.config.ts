@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
         react(),
         {
           name: 'api-middleware',
+          enforce: 'pre',
           configureServer(server) {
             server.middlewares.use(apiMiddleware);
           },

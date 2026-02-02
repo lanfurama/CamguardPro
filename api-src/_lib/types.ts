@@ -7,6 +7,10 @@ export interface MaintenanceLog {
   description: string;
   technician?: string;
   type: 'REPAIR' | 'CHECKUP' | 'INSTALLATION';
+  errorTime?: string;
+  fixedTime?: string;
+  reason?: string;
+  solution?: string;
 }
 
 export interface Camera {
@@ -25,6 +29,7 @@ export interface Camera {
   lastPingTime: number;
   logs: MaintenanceLog[];
   notes: string;
+  isNew?: boolean;
 }
 
 export interface Property {

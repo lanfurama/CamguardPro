@@ -65,6 +65,7 @@ CREATE TABLE cameras (
   consecutive_drops  INTEGER NOT NULL DEFAULT 0,
   last_ping_time     BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
   notes              TEXT,
+  is_new             BOOLEAN NOT NULL DEFAULT FALSE,
   created_at         TIMESTAMPTZ DEFAULT NOW(),
   updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
@@ -80,7 +81,11 @@ CREATE TABLE maintenance_logs (
   id          VARCHAR(32) PRIMARY KEY,
   camera_id   VARCHAR(32) NOT NULL REFERENCES cameras(id) ON DELETE CASCADE,
   log_date    DATE NOT NULL,
+  error_time  TIMESTAMPTZ,
+  fixed_time  TIMESTAMPTZ,
   description TEXT NOT NULL,
+  reason      TEXT,
+  solution    TEXT,
   technician  VARCHAR(255),
   type        maintenance_log_type NOT NULL,
   created_at  TIMESTAMPTZ DEFAULT NOW()
@@ -162,9 +167,9 @@ INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model,
   ('CAM_005', 'PROP_003', 10, 'Cam Hồ bơi', 'Cạnh hồ bơi', '192.168.100.5', 'Ezviz', 'C8C', 'Wifi, Color Night Vision', 'Tự lắp đặt', 'ONLINE', 0, '');
 
 -- Maintenance logs (L1 cho CAM_001, L2 cho CAM_003)
-INSERT INTO maintenance_logs (id, camera_id, log_date, description, technician, type) VALUES
-  ('L1', 'CAM_001', '2023-10-15', 'Thay nguồn adapter', 'KTV Nam', 'REPAIR'),
-  ('L2', 'CAM_003', '2023-11-01', 'Bảo trì định kỳ, vệ sinh ống kính', NULL, 'CHECKUP');
+INSERT INTO maintenance_logs (id, camera_id, log_date, error_time, fixed_time, description, reason, solution, technician, type) VALUES
+  ('L1', 'CAM_001', '2023-10-15', NULL, NULL, 'Thay nguồn adapter', NULL, NULL, 'KTV Nam', 'REPAIR'),
+  ('L2', 'CAM_003', '2023-11-01', NULL, NULL, 'Bảo trì định kỳ, vệ sinh ống kính', NULL, NULL, NULL, 'CHECKUP');
 
 -- ============================================================
 -- VIEWS (tiện query và upscale sau)
@@ -189,6 +194,7 @@ SELECT
   c.consecutive_drops,
   c.last_ping_time,
   c.notes,
+  c.is_new,
   c.created_at,
   c.updated_at
 FROM cameras c

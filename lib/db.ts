@@ -47,9 +47,11 @@ function getPool(): pg.Pool | null {
   if (!url) return null;
 
   if (!global.__dbPool) {
+    const forceNoSsl = process.env.DB_SSL === 'false';
+    const useSsl = !forceNoSsl && url.includes('sslmode=require');
     global.__dbPool = new Pool({
       connectionString: url,
-      ssl: url.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
       max: process.env.NODE_ENV === 'production' ? 2 : 10,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 5000,

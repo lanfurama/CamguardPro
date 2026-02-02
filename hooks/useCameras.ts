@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Camera } from '../types';
 import { camerasApi } from '../services/api';
+import { parseCamerasResponse } from '../lib/api-response';
 import { usePingSimulation } from './usePingSimulation';
 
 type AddNotificationFn = (msg: string, type: 'ERROR' | 'INFO' | 'WARNING') => void;
@@ -15,7 +16,8 @@ export function useCameras(addNotification: AddNotificationFn) {
     setLoading(true);
     setError(null);
     try {
-      const data = await camerasApi.getAll();
+      const raw = await camerasApi.getAll();
+      const data = parseCamerasResponse(raw);
       setCameras(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không tải được danh sách camera';

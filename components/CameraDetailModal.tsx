@@ -33,34 +33,34 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+      <div className="bg-white shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200 flex justify-between items-start bg-slate-50">
+        <div className="p-3 border-b border-slate-200 flex justify-between items-start bg-slate-50">
           <div>
-            <div className="flex items-center space-x-3 mb-1">
-              <h3 className="text-2xl font-bold text-slate-900">{camera.name}</h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(camera.status)}`}>
+            <div className="flex items-center space-x-2 mb-0.5">
+              <h3 className="text-lg font-bold text-slate-900">{camera.name}</h3>
+              <span className={`px-2 py-0.5 text-xs font-bold border ${getStatusColor(camera.status)}`}>
                 {camera.status}
               </span>
             </div>
-            <p className="text-slate-500 flex items-center text-sm">
-              <MapPin size={14} className="mr-1" /> {camera.location} - {camera.zone}
+            <p className="text-slate-500 flex items-center text-xs">
+              <MapPin size={12} className="mr-1" /> {camera.location} - {camera.zone}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition">
-            <X size={24} />
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200 transition">
+            <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
           
           {/* Left Column: Specs & Info */}
-          <div className="space-y-6">
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <h4 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
-                <Cpu size={16} className="mr-2 text-indigo-500" /> Thông số kỹ thuật
+          <div className="space-y-4">
+            <div className="bg-slate-50 p-3 border border-slate-100">
+              <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3 flex items-center">
+                <Cpu size={14} className="mr-1.5 text-indigo-500" /> Thông số kỹ thuật
               </h4>
               <div className="grid grid-cols-2 gap-y-4 text-sm">
                 <div>
@@ -100,9 +100,9 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
           </div>
 
           {/* Right Column: Logs & AI */}
-          <div className="space-y-6">
+          <div className="space-y-4">
              {/* Ping Status */}
-             <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex items-center justify-between">
+             <div className="bg-indigo-50 p-3 border border-indigo-100 flex items-center justify-between">
                 <div>
                     <h4 className="text-sm font-semibold text-indigo-900 flex items-center">
                         <Activity size={16} className="mr-2" /> Trạng thái mạng
@@ -146,22 +146,22 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
             </div>
 
             {/* AI Action */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-xl border border-indigo-100">
-                <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-sm font-bold text-indigo-900 flex items-center">
-                        <Sparkles size={16} className="mr-2 text-purple-600" /> Phân tích AI
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-3 border border-indigo-100">
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-xs font-bold text-indigo-900 flex items-center">
+                        <Sparkles size={14} className="mr-1.5 text-purple-600" /> Phân tích AI
                     </h4>
                     <button 
                         onClick={handleAnalyze}
                         disabled={analyzing}
-                        className="text-xs bg-white hover:bg-white/80 text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg shadow-sm transition disabled:opacity-50 font-medium"
+                        className="text-[11px] bg-white hover:bg-white/80 text-indigo-600 border border-indigo-200 px-2 py-1 shadow-sm transition disabled:opacity-50 font-medium"
                     >
                         {analyzing ? 'Đang phân tích...' : 'Phân tích Logs'}
                     </button>
                 </div>
                 
                 {aiAnalysis ? (
-                    <div className="text-sm text-slate-700 bg-white/50 p-3 rounded-lg border border-indigo-50/50 whitespace-pre-line leading-relaxed">
+                    <div className="text-xs text-slate-700 bg-white/50 p-2 border border-indigo-50/50 whitespace-pre-line leading-relaxed">
                         {aiAnalysis}
                     </div>
                 ) : (

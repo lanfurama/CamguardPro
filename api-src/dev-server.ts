@@ -1,6 +1,12 @@
 /**
  * Dev server - mô phỏng đầy đủ API khi chạy `npm run dev` (Vite)
  */
+import path from 'path';
+import { config as loadEnv } from 'dotenv';
+
+// Đảm bảo load .env từ thư mục gốc project khi chạy dev (Vite có thể có cwd khác)
+loadEnv({ path: path.resolve(process.cwd(), '.env') });
+
 import type { Connect } from 'vite';
 import { IncomingMessage } from 'http';
 import { checkConnection, isDbConfigured } from '../lib/db';
@@ -94,8 +100,16 @@ export const apiMiddleware: Connect.NextHandleFunction = async (req, res, next) 
 
     if (path === '/api/cameras' || path.startsWith('/api/cameras?')) {
       if (req.method === 'GET') {
-        const cameras = await getCameras();
-        return jsonRes(res, cameras);
+        try {
+          const cameras = await getCameras();
+          return jsonRes(res, cameras);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error('[api/dev-server] GET /api/cameras', err);
+          return jsonRes(res, {
+            error: `Lỗi tải danh sách camera: ${msg}. Kiểm tra đã chạy database/schema.sql (có view v_cameras_full).`,
+          }, 500);
+        }
       }
       if (req.method === 'POST') {
         if (body.cameras?.length) {

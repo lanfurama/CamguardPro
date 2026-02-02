@@ -26,6 +26,24 @@ export const PROPERTIES: Property[] = [
 
 export const DEFAULT_BRANDS = ['Hikvision', 'Dahua', 'KBVision', 'Ezviz', 'Imou', 'Panasonic', 'Sony', 'Axis'];
 
+/** Map Status từ Excel (Check list Camera) sang Status app */
+export const STATUS_EXCEL_MAP: Record<string, 'ONLINE' | 'OFFLINE' | 'MAINTENANCE' | 'WARNING'> = {
+  ok: 'ONLINE',
+  OK: 'ONLINE',
+  Ok: 'ONLINE',
+  pending: 'WARNING',
+  Pending: 'WARNING',
+  done: 'ONLINE',
+  Done: 'ONLINE',
+  maintenance: 'MAINTENANCE',
+  repair: 'MAINTENANCE',
+  error: 'WARNING',
+  lỗi: 'WARNING',
+  mất: 'WARNING',
+  nghi: 'WARNING',
+};
+/** Gợi ý: nếu Status Excel không khớp, mô tả chi tiết (VD "Mất hồng ngoại") nên ghi vào Ghi chú (Notes). */
+
 export const INITIAL_CAMERAS: Camera[] = [
   {
     id: 'CAM_001',

@@ -6,6 +6,10 @@ export interface MaintenanceLog {
   description: string;
   technician?: string;
   type: 'REPAIR' | 'CHECKUP' | 'INSTALLATION';
+  errorTime?: string;  // ISO / Excel "Error Time"
+  fixedTime?: string; // ISO / Excel "FixedTime"
+  reason?: string;    // Excel "Reason"
+  solution?: string;  // Excel "Solution"
 }
 
 export interface Camera {
@@ -24,6 +28,7 @@ export interface Camera {
   lastPingTime: number;
   logs: MaintenanceLog[];
   notes: string;
+  isNew?: boolean; // Excel "NEW"
 }
 
 export interface Property {
