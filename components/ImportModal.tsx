@@ -67,16 +67,41 @@ function parseExcelFile(file: File): Promise<Camera[]> {
             const notesParts = [reason, solution, errTime ? `Error: ${errTime}` : '', fixedTime ? `Fixed: ${fixedTime}` : '', doneBy ? `By: ${doneBy}` : ''].filter(Boolean);
             const notes = notesParts.join(' | ') || 'Import từ Excel Check list Camera';
 
+            /** Chuyển giá trị Excel (số serial hoặc chuỗi ngày) sang ISO string cho DB */
+            const toIsoIfDate = (v: string | number): string | undefined => {
+              const s = String(v ?? '').trim();
+              if (!s) return undefined;
+              const n = Number(s);
+              if (!Number.isNaN(n) && n > 0 && n < 3000000) {
+                const ms = (n - 25569) * 86400 * 1000;
+                const d = new Date(ms);
+                if (!Number.isNaN(d.getTime())) return d.toISOString();
+              }
+              const parsed = new Date(s);
+              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+            };
+
             const logs: Camera['logs'] = [];
             if (reason || solution || errTime || fixedTime || doneBy) {
-              const logDate = fixedTime && /^\d/.test(String(fixedTime)) ? fixedTime : errTime || new Date().toISOString().slice(0, 10);
+              const errStr = String(errTime ?? '').trim();
+              const fixStr = String(fixedTime ?? '').trim();
+              const errIso = toIsoIfDate(errTime ?? '');
+              const fixIso = toIsoIfDate(fixedTime ?? '');
+              const logDateRaw = fixStr && /^\d/.test(fixStr) ? fixStr : errStr || new Date().toISOString().slice(0, 10);
+              const logDateYmd = /^\d{4}-\d{2}-\d{2}$/.test(logDateRaw)
+                ? logDateRaw
+                : (fixIso || errIso || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
               const desc = [reason, solution].filter(Boolean).join(' - ') || 'Lịch sử từ Excel';
               logs.push({
-                id: `LOG_EXCEL_${ts}_${i}`,
-                date: logDate,
+                id: `LOG_EXCEL_${ts}_${sheetName}_${i}`,
+                date: logDateYmd,
                 description: desc,
                 technician: doneBy || undefined,
                 type: 'REPAIR',
+                errorTime: errIso || (errStr ? errStr : undefined),
+                fixedTime: fixIso || (fixStr ? fixStr : undefined),
+                reason: (reason && String(reason).trim()) || undefined,
+                solution: (solution && String(solution).trim()) || undefined,
               });
             }
 
