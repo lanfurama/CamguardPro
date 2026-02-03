@@ -1,10 +1,61 @@
 import { GoogleGenAI } from "@google/genai";
 import { Camera } from "../types";
 
-const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.warn("API Key not found in environment variables");
+const useVertex = () => process.env.USE_VERTEX_AI === "true";
+const project = () => process.env.GOOGLE_CLOUD_PROJECT;
+const location = () => process.env.GOOGLE_CLOUD_LOCATION;
+const vertexServiceAccountPath = () => process.env.VERTEX_AI_SERVICE_ACCOUNT_PATH;
+const vertexEndpointId = () => process.env.VERTEX_AI_ENDPOINT_ID;
+
+/** Model: với Vertex dùng endpoint ID (full path) hoặc GEMINI_MODEL; Gemini API dùng gemini-2.5-flash */
+function getModel(): string {
+  if (useVertex()) {
+    const proj = project();
+    const loc = location();
+    const endpointId = vertexEndpointId();
+    if (endpointId && proj && loc)
+      return `projects/${proj}/locations/${loc}/endpoints/${endpointId}`;
+    return process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  }
+  return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+const getAiClient = (): GoogleGenAI | null => {
+  if (useVertex()) {
+    const proj = project();
+    const loc = location();
+    const saPath = vertexServiceAccountPath();
+    const endpointId = vertexEndpointId();
+    const apiKey = process.env.VERTEX_AI_API_KEY;
+
+    if (!proj || !loc) {
+      console.warn("Vertex AI: cần GOOGLE_CLOUD_PROJECT và GOOGLE_CLOUD_LOCATION trong .env.");
+      return null;
+    }
+    if (!saPath) {
+      console.warn("Vertex AI: cần VERTEX_AI_SERVICE_ACCOUNT_PATH (đường dẫn file JSON service account).");
+      return null;
+    }
+    if (!endpointId) {
+      console.warn("Vertex AI: cần VERTEX_AI_ENDPOINT_ID trong .env.");
+      return null;
+    }
+    if (!apiKey || apiKey === "your_vertex_ai_api_key") {
+      console.warn("Vertex AI: cần VERTEX_AI_API_KEY trong .env.");
+      return null;
+    }
+
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = saPath;
+    return new GoogleGenAI({
+      vertexai: true,
+      project: proj,
+      location: loc,
+    });
+  }
+
+  const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "your_gemini_api_key") {
+    console.warn("Đặt GEMINI_API_KEY trong .env (https://aistudio.google.com/apikey) hoặc dùng Vertex AI (USE_VERTEX_AI=true).");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -35,7 +86,7 @@ export const analyzeCameraLogs = async (camera: Camera): Promise<string> => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: getModel(),
       contents: prompt,
     });
     return response.text || "Không thể phân tích dữ liệu.";
@@ -66,7 +117,7 @@ export const generateSystemReport = async (cameras: Camera[]): Promise<string> =
 
    try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: getModel(),
       contents: prompt,
     });
     return response.text || "Không tạo được báo cáo.";

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Server, Calendar, Cpu, MapPin, Activity, Sparkles, AlertTriangle } from 'lucide-react';
 import { Camera, MaintenanceLog } from '../types';
-import { analyzeCameraLogs } from '../services/geminiService';
 
 interface Props {
   camera: Camera | null;
@@ -18,9 +17,17 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
 
   const handleAnalyze = async () => {
     setAnalyzing(true);
-    const result = await analyzeCameraLogs(camera);
-    setAiAnalysis(result);
-    setAnalyzing(false);
+    try {
+      const res = await fetch('/api/ai/analyze-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ camera }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setAiAnalysis(res.ok ? (data.text ?? '') : (data.error || data.detail || 'Lỗi phân tích'));
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const getStatusColor = (status: string) => {

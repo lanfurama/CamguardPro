@@ -19,6 +19,8 @@ const entries = [
   'api-src/brands/[name].ts',
   'api-src/properties/index.ts',
   'api-src/properties/[id].ts',
+  'api-src/ai/report.ts',
+  'api-src/ai/analyze-logs.ts',
 ];
 
 function rmDir(dir) {

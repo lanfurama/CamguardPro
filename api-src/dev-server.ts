@@ -15,6 +15,7 @@ import * as cameraRepo from '../lib/repositories/cameraRepository';
 import * as propertyRepo from '../lib/repositories/propertyRepository';
 import * as brandRepo from '../lib/repositories/brandRepository';
 import type { Camera, Property } from '../types';
+import { generateSystemReport, analyzeCameraLogs } from '../services/geminiService';
 
 function jsonRes(res: any, data: unknown, status = 200) {
   res.statusCode = status;
@@ -69,6 +70,36 @@ export const apiMiddleware: Connect.NextHandleFunction = async (req, res, next) 
         database: dbStatus.ok ? 'connected' : 'disconnected',
         ...(dbStatus.error && { databaseError: dbStatus.error }),
       });
+    }
+
+    // ===== AI (Vertex / Gemini) - chạy trên server, không cần DB =====
+    if (path === '/api/ai/report' || path.startsWith('/api/ai/report?')) {
+      if (req.method === 'POST') {
+        const cameras = body.cameras as Camera[] | undefined;
+        if (!Array.isArray(cameras)) return jsonRes(res, { error: 'Thiếu cameras (mảng)' }, 400);
+        try {
+          const text = await generateSystemReport(cameras);
+          return jsonRes(res, { text });
+        } catch (err) {
+          console.error('[api/ai/report]', err);
+          return jsonRes(res, { error: err instanceof Error ? err.message : 'Lỗi tạo báo cáo AI' }, 500);
+        }
+      }
+      return jsonRes(res, { error: 'Method not allowed' }, 405);
+    }
+    if (path === '/api/ai/analyze-logs' || path.startsWith('/api/ai/analyze-logs?')) {
+      if (req.method === 'POST') {
+        const camera = body.camera as Camera | undefined;
+        if (!camera) return jsonRes(res, { error: 'Thiếu camera' }, 400);
+        try {
+          const text = await analyzeCameraLogs(camera);
+          return jsonRes(res, { text });
+        } catch (err) {
+          console.error('[api/ai/analyze-logs]', err);
+          return jsonRes(res, { error: err instanceof Error ? err.message : 'Lỗi phân tích AI' }, 500);
+        }
+      }
+      return jsonRes(res, { error: 'Method not allowed' }, 405);
     }
 
     if (!isDbConfigured()) {
