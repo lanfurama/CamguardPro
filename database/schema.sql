@@ -66,6 +66,10 @@ CREATE TABLE cameras (
   last_ping_time     BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
   notes              TEXT,
   is_new             BOOLEAN NOT NULL DEFAULT FALSE,
+  error_time         TIMESTAMPTZ,
+  fixed_time         TIMESTAMPTZ,
+  reason             TEXT,
+  done_by            VARCHAR(255),
   created_at         TIMESTAMPTZ DEFAULT NOW(),
   updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
@@ -195,6 +199,10 @@ SELECT
   c.last_ping_time,
   c.notes,
   c.is_new,
+  c.error_time,
+  c.fixed_time,
+  c.reason,
+  c.done_by,
   c.created_at,
   c.updated_at
 FROM cameras c

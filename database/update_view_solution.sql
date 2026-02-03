@@ -1,14 +1,6 @@
--- Migration: Thêm columns error_time, fixed_time, reason, done_by vào cameras
--- Chạy khi đã có schema cũ: psql -f database/migrate-excel-columns.sql
-
--- 1. Thêm cột vào bảng cameras
-ALTER TABLE cameras ADD COLUMN IF NOT EXISTS error_time TIMESTAMPTZ;
-ALTER TABLE cameras ADD COLUMN IF NOT EXISTS fixed_time TIMESTAMPTZ;
-ALTER TABLE cameras ADD COLUMN IF NOT EXISTS reason TEXT;
-ALTER TABLE cameras ADD COLUMN IF NOT EXISTS done_by VARCHAR(255);
-
--- 2. Cập nhật view v_cameras_full
+-- Update v_cameras_full view to include solution column
 DROP VIEW IF EXISTS v_cameras_full;
+
 CREATE OR REPLACE VIEW v_cameras_full AS
 SELECT
   c.id,
@@ -32,6 +24,7 @@ SELECT
   c.fixed_time,
   c.reason,
   c.done_by,
+  c.solution,
   c.created_at,
   c.updated_at
 FROM cameras c
