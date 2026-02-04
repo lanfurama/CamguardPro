@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Upload, Copy, AlertCircle, FileText } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Upload, Copy, AlertCircle, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { Camera, Property } from '../types';
 import { STATUS_EXCEL_MAP } from '../constants';
 
@@ -117,6 +117,38 @@ function toIsoIfDate(v: string | number): string | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
+/** Parse Check list date formats (e.g. "07h14 16/01/25", "16h 26/02/25", "28/01/25") to ISO for PostgreSQL timestamptz. */
+function parseChecklistDateToIso(raw: string): string | undefined {
+  const firstLine = String(raw ?? '').split(/\r?\n/)[0].trim().replace(/\s+/g, ' ');
+  const s = firstLine;
+  if (!s) return undefined;
+  const iso = toIsoIfDate(s);
+  if (iso) return iso;
+  // "07h14 16/01/25" or "7h36 25/02/25" or "16h 26/02/25" (no minutes)
+  const withTime = s.match(/^(\d{1,2})h(\d{0,2})\s+(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/i);
+  if (withTime) {
+    const hour = parseInt(withTime[1], 10);
+    const min = withTime[2] ? parseInt(withTime[2], 10) : 0;
+    const day = parseInt(withTime[3], 10);
+    const month = parseInt(withTime[4], 10) - 1;
+    let year = parseInt(withTime[5], 10);
+    if (year < 100) year += 2000;
+    const d = new Date(year, month, day, hour, min, 0, 0);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  // "16/01/25" or "28/01/25" or "8/1/26" (date only)
+  const dateOnly = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (dateOnly) {
+    const day = parseInt(dateOnly[1], 10);
+    const month = parseInt(dateOnly[2], 10) - 1;
+    let year = parseInt(dateOnly[3], 10);
+    if (year < 100) year += 2000;
+    const d = new Date(year, month, day, 0, 0, 0, 0);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return undefined;
+}
+
 interface Props {
   properties: Property[];
   onImport: (cameras: Camera[]) => void | Promise<boolean>;
@@ -127,10 +159,18 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
   const [text, setText] = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const checklistTemplate = CHECKLIST_TEMPLATE;
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [error]);
 
   const handleCopyTemplate = () => {
     navigator.clipboard.writeText(checklistTemplate);
@@ -150,31 +190,34 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
 
   const handleProcessCsv = async () => {
     setError(null);
-    if (!text.trim()) {
-      setError('Vui lòng dán nội dung CSV hoặc chọn file CSV.');
-      return;
-    }
-    if (!selectedPropertyId) {
-      setError('Vui lòng chọn toà nhà.');
-      return;
-    }
-    const prop = properties.find(p => p.id === selectedPropertyId);
-    if (!prop) {
-      setError('Toà nhà đã chọn không tồn tại.');
-      return;
-    }
+    setSuccessMessage(null);
+    setImporting(true);
+    try {
+      if (!text.trim()) {
+        setError('Vui lòng dán nội dung CSV hoặc chọn file CSV.');
+        return;
+      }
+      if (!selectedPropertyId) {
+        setError('Vui lòng chọn toà nhà.');
+        return;
+      }
+      const prop = properties.find(p => p.id === selectedPropertyId);
+      if (!prop) {
+        setError('Toà nhà đã chọn không tồn tại.');
+        return;
+      }
 
-    const rows = parseCsvWithQuotes(text.trim());
-    if (rows.length === 0) {
-      setError('Không có dòng dữ liệu.');
-      return;
-    }
+      const rows = parseCsvWithQuotes(text.trim());
+      if (rows.length === 0) {
+        setError('Không có dòng dữ liệu.');
+        return;
+      }
 
-    const headerResult = findChecklistHeader(rows);
-    if (!headerResult) {
-      setError('Không tìm thấy dòng tiêu đề đúng format. Cần có các cột: No, Position, NEW, Error Time, FixedTime, Reason, Done By, Solution.');
-      return;
-    }
+      const headerResult = findChecklistHeader(rows);
+      if (!headerResult) {
+        setError('Không tìm thấy dòng tiêu đề đúng format. Cần có các cột: No, Position, NEW, Error Time, FixedTime, Reason, Done By, Solution.');
+        return;
+      }
 
     const { headerRowIndex, indices } = headerResult;
     const idxNo = indices['No'] ?? 0;
@@ -202,8 +245,8 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
       const doneBy = (typeof idxDoneBy === 'number' && idxDoneBy >= 0 ? row[idxDoneBy] : '')?.toString().trim() ?? '';
       const solution = (typeof idxSolution === 'number' && idxSolution >= 0 ? row[idxSolution] : '')?.toString().trim() ?? '';
 
-      const errorTime = toIsoIfDate(errTimeRaw) || (errTimeRaw || undefined);
-      const fixedTime = toIsoIfDate(fixedTimeRaw) || (fixedTimeRaw || undefined);
+      const errorTime = parseChecklistDateToIso(errTimeRaw);
+      const fixedTime = parseChecklistDateToIso(fixedTimeRaw);
       const isNew = /new|mới/i.test(newVal) || !!newVal.trim();
 
       const notesParts = [reason, solution, errTimeRaw ? `Error: ${errTimeRaw}` : '', fixedTimeRaw ? `Fixed: ${fixedTimeRaw}` : '', doneBy ? `By: ${doneBy}` : ''].filter(Boolean);
@@ -236,15 +279,16 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
       });
     }
 
-    if (cameras.length === 0) {
-      setError('Không có dòng camera nào hợp lệ (cột Position bắt buộc).');
-      return;
-    }
+      if (cameras.length === 0) {
+        setError('Không có dòng camera nào hợp lệ (cột Position bắt buộc).');
+        return;
+      }
 
-    setImporting(true);
-    try {
       const result = await onImport(cameras);
-      if (result !== false) onClose();
+      if (result !== false) {
+        setSuccessMessage(`Import thành công ${cameras.length} camera. Đang đóng...`);
+        setTimeout(() => onClose(), 1500);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Lỗi import.');
     } finally {
@@ -326,22 +370,38 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
             />
           </div>
 
+          {successMessage && (
+            <div className="mt-3 p-3 bg-emerald-50 text-emerald-800 text-sm border border-emerald-200 rounded flex items-center gap-2">
+              <CheckCircle size={18} className="shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          )}
           {error && (
-            <div className="mt-3 p-2 bg-red-50 text-red-700 text-xs border border-red-100 whitespace-pre-line rounded">
-              <strong>Lỗi Import:</strong><br />{error}
+            <div ref={errorRef} className="mt-3 p-3 bg-red-50 text-red-700 text-sm border border-red-200 whitespace-pre-line rounded flex items-start gap-2">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <div>
+                <strong>Lỗi Import:</strong><br />{error}
+              </div>
             </div>
           )}
         </div>
 
         <div className="p-3 border-t border-slate-200 flex justify-end gap-2 bg-slate-50 flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-3 py-2.5 min-h-[44px] text-slate-600 hover:bg-slate-200 text-sm font-medium rounded">Đóng</button>
+          <button type="button" onClick={onClose} className="px-3 py-2.5 min-h-[44px] text-slate-600 hover:bg-slate-200 text-sm font-medium rounded" disabled={importing}>Đóng</button>
           <button
             type="button"
             onClick={handleProcessCsv}
             disabled={importing || !text.trim() || !selectedPropertyId || properties.length === 0}
-            className="px-3 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 text-white text-sm font-medium rounded"
+            className="px-3 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 text-white text-sm font-medium rounded flex items-center justify-center gap-2 min-w-[140px]"
           >
-            {importing ? 'Đang import...' : 'Xử lý Import'}
+            {importing ? (
+              <>
+                <Loader2 size={18} className="animate-spin shrink-0" />
+                <span>Đang import...</span>
+              </>
+            ) : (
+              'Xử lý Import'
+            )}
           </button>
         </div>
       </div>
