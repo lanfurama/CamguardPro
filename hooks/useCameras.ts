@@ -74,9 +74,13 @@ export function useCameras(addNotification: AddNotificationFn) {
   const handleImportCameras = useCallback(
     async (newCameras: Camera[]): Promise<boolean> => {
       try {
-        const created = await camerasApi.import(newCameras);
-        setCameras((prev) => [...prev, ...created]);
-        addNotification(`Đã import thành công ${created.length} camera.`, 'INFO');
+        const result = await camerasApi.import(newCameras);
+        setCameras((prev) => {
+          const byId = new Map(prev.map((c) => [c.id, c]));
+          for (const c of result) byId.set(c.id, c);
+          return Array.from(byId.values());
+        });
+        addNotification(`Đã import thành công ${result.length} camera (thêm mới và cập nhật).`, 'INFO');
         return true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Lỗi import camera';

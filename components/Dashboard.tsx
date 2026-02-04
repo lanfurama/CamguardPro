@@ -19,9 +19,9 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
 
   const statusData = [
     { name: 'Online', value: online, color: '#10b981' },
-    { name: 'Offline', value: offline, color: '#ef4444' },
+    { name: 'Offline', value: offline, color: '#7c3aed' },
     { name: 'Bảo trì', value: maintenance, color: '#f59e0b' },
-    { name: 'Có lỗi', value: hasError, color: '#8b5cf6' },
+    { name: 'Có lỗi', value: hasError, color: '#ef4444' },
   ];
 
   // Data for Bar Chart: Cameras by Property
@@ -62,9 +62,9 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
         <div className="bg-white p-4 shadow-sm border border-slate-200 flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-xs font-medium">Mất Tín Hiệu</p>
-            <h3 className="text-2xl font-bold text-red-600 mt-0.5">{offline}</h3>
+            <h3 className="text-2xl font-bold text-purple-600 mt-0.5">{offline}</h3>
           </div>
-          <div className="w-10 h-10 bg-red-50 flex items-center justify-center text-red-600">
+          <div className="w-10 h-10 bg-purple-50 flex items-center justify-center text-purple-600">
             <WifiOff size={20} />
           </div>
         </div>
@@ -82,9 +82,9 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
         <div className="bg-white p-4 shadow-sm border border-slate-200 flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-xs font-medium">Lỗi</p>
-            <h3 className="text-2xl font-bold text-purple-600 mt-0.5">{hasError}</h3>
+            <h3 className="text-2xl font-bold text-red-600 mt-0.5">{hasError}</h3>
           </div>
-          <div className="w-10 h-10 bg-purple-50 flex items-center justify-center text-purple-600">
+          <div className="w-10 h-10 bg-red-50 flex items-center justify-center text-red-600">
             <AlertTriangle size={20} />
           </div>
         </div>
@@ -95,7 +95,7 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
         {/* Pie Chart */}
         <div className="bg-white p-4 shadow-sm border border-slate-200 lg:col-span-1">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Trạng Thái Hệ Thống</h3>
-          <div className="h-64">
+          <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -121,7 +121,7 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
         {/* Bar Chart */}
         <div className="bg-white p-4 shadow-sm border border-slate-200 lg:col-span-2">
           <h3 className="font-bold text-slate-800 text-sm mb-4">Phân Bố Theo Toà Nhà (Property)</h3>
-          <div className="h-64">
+          <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={propertyData}
@@ -136,7 +136,7 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
                 <Legend />
                 <Bar dataKey="Online" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Maintenance" stackId="a" fill="#f59e0b" />
-                <Bar dataKey="Offline" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Offline" stackId="a" fill="#7c3aed" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -151,14 +151,14 @@ export const Dashboard: React.FC<Props> = ({ cameras, properties }) => {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {cameras.filter(c => c.status !== 'ONLINE' || c.reason).map(c => (
-              <div key={c.id} className="bg-white p-3 shadow-sm border-l-4 border-red-500 flex flex-col gap-1">
+              <div key={c.id} className="bg-white p-3 shadow-sm border-l-4 border-red-500 flex flex-col gap-1 min-h-[44px]">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-bold text-slate-700 text-sm">{c.name}</span>
                     <span className="text-xs text-slate-500 block">{c.ip}</span>
                   </div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 border ${c.status === 'ONLINE' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                    c.status === 'OFFLINE' ? 'text-red-600 border-red-200 bg-red-50' :
+                    c.status === 'OFFLINE' ? 'text-purple-600 border-purple-200 bg-purple-50' :
                       'text-amber-600 border-amber-200 bg-amber-50'
                     }`}>
                     {c.status}

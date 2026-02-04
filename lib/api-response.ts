@@ -40,6 +40,12 @@ function normalizeCamera(row: unknown): Camera {
       consecutiveDrops: Number(o.consecutiveDrops ?? o.consecutive_drops ?? 0),
       lastPingTime: Number(o.lastPingTime ?? o.last_ping_time ?? Date.now()),
       notes: String(o.notes ?? ''),
+      isNew: Boolean(o.isNew ?? o.is_new ?? false),
+      errorTime: (o.errorTime ?? o.error_time) != null ? String(o.errorTime ?? o.error_time) : undefined,
+      fixedTime: (o.fixedTime ?? o.fixed_time) != null ? String(o.fixedTime ?? o.fixed_time) : undefined,
+      reason: o.reason != null && o.reason !== '' ? String(o.reason) : undefined,
+      doneBy: o.doneBy != null && o.doneBy !== '' ? String(o.doneBy) : (o.done_by != null && o.done_by !== '' ? String(o.done_by) : undefined),
+      solution: o.solution != null && o.solution !== '' ? String(o.solution) : undefined,
       logs: logs.map((l) => {
         const log = l && typeof l === 'object' ? (l as Record<string, unknown>) : {};
         return {

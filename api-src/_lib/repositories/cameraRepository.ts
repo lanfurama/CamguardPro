@@ -77,6 +77,25 @@ export async function getAllCameras(): Promise<Camera[]> {
   return camerasResult.rows.map((row) => mapToCamera(row));
 }
 
+/** Find existing camera by id (if provided and exists) or by (property_id + name). Used for import upsert. */
+export async function findExistingCamera(propertyId: string, name: string, id?: string): Promise<Camera | null> {
+  if (id) {
+    const byId = await query<CameraRow>(
+      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution
+       FROM v_cameras_full WHERE id = $1`,
+      [id]
+    );
+    if (byId.rows.length > 0) return mapToCamera(byId.rows[0]);
+  }
+  const byPropName = await query<CameraRow>(
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution
+     FROM v_cameras_full WHERE property_id = $1 AND camera_name = $2`,
+    [propertyId, name.trim()]
+  );
+  if (byPropName.rows.length > 0) return mapToCamera(byPropName.rows[0]);
+  return null;
+}
+
 async function getOrCreateZoneId(propertyId: string, zoneName: string): Promise<number> {
   let result = await query<{ id: number }>(
     `SELECT id FROM property_zones WHERE property_id = $1 AND name = $2`,
@@ -100,8 +119,8 @@ export async function createCamera(data: Camera): Promise<Camera> {
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
 
   await query(
-    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
     [
       id,
       data.propertyId,
@@ -118,6 +137,11 @@ export async function createCamera(data: Camera): Promise<Camera> {
       data.lastPingTime ?? Date.now(),
       data.notes || null,
       data.isNew ?? false,
+      data.errorTime ?? null,
+      data.fixedTime ?? null,
+      data.reason ?? null,
+      data.doneBy ?? null,
+      data.solution ?? null,
     ]
   );
 
@@ -131,7 +155,7 @@ export async function updateCamera(data: Camera): Promise<Camera> {
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
 
   await query(
-    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14, is_new=$15 WHERE id=$1`,
+    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14, is_new=$15, error_time=$16, fixed_time=$17, reason=$18, done_by=$19, solution=$20 WHERE id=$1`,
     [
       data.id,
       data.propertyId,
@@ -148,6 +172,11 @@ export async function updateCamera(data: Camera): Promise<Camera> {
       data.lastPingTime ?? Date.now(),
       data.notes || null,
       data.isNew ?? false,
+      data.errorTime ?? null,
+      data.fixedTime ?? null,
+      data.reason ?? null,
+      data.doneBy ?? null,
+      data.solution ?? null,
     ]
   );
 
@@ -163,11 +192,40 @@ export async function updateCameraNotes(id: string, notes: string): Promise<void
   await query(`UPDATE cameras SET notes = $2 WHERE id = $1`, [id, notes]);
 }
 
+function cameraHasChange(existing: Camera, incoming: Camera): boolean {
+  const s = (v: string | undefined) => v ?? '';
+  return (
+    s(existing.name) !== s(incoming.name) ||
+    s(existing.zone) !== s(incoming.zone) ||
+    s(existing.ip) !== s(incoming.ip) ||
+    s(existing.brand) !== s(incoming.brand) ||
+    s(existing.model) !== s(incoming.model) ||
+    s(existing.notes) !== s(incoming.notes) ||
+    (existing.isNew ?? false) !== (incoming.isNew ?? false) ||
+    s(existing.errorTime) !== s(incoming.errorTime) ||
+    s(existing.fixedTime) !== s(incoming.fixedTime) ||
+    s(existing.reason) !== s(incoming.reason) ||
+    s(existing.doneBy) !== s(incoming.doneBy) ||
+    s(existing.solution) !== s(incoming.solution) ||
+    (existing.status ?? 'ONLINE') !== (incoming.status ?? 'ONLINE')
+  );
+}
+
 export async function importCameras(cameras: Camera[]): Promise<Camera[]> {
-  const created: Camera[] = [];
+  const result: Camera[] = [];
   for (const cam of cameras) {
-    const c = await createCamera({ ...cam, id: cam.id || undefined });
-    created.push(c);
+    const existing = await findExistingCamera(cam.propertyId, cam.name, cam.id);
+    if (existing) {
+      if (cameraHasChange(existing, cam)) {
+        const updated = await updateCamera({ ...cam, id: existing.id });
+        result.push(updated);
+      } else {
+        result.push(existing);
+      }
+    } else {
+      const created = await createCamera({ ...cam, id: cam.id || undefined });
+      result.push(created);
+    }
   }
-  return created;
+  return result;
 }

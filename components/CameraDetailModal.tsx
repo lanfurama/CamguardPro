@@ -40,28 +40,33 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3">
-      <div className="bg-white shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+      <div className="bg-white shadow-2xl w-full h-full max-h-full md:max-w-4xl md:max-h-[90vh] md:h-auto overflow-hidden flex flex-col rounded-none md:rounded-lg">
         {/* Header */}
-        <div className="p-3 border-b border-slate-200 flex justify-between items-start bg-slate-50">
-          <div>
-            <div className="flex items-center space-x-2 mb-0.5">
-              <h3 className="text-lg font-bold text-slate-900">{camera.name}</h3>
-              <span className={`px-2 py-0.5 text-xs font-bold border ${getStatusColor(camera.status)}`}>
+        <div className="p-3 md:p-4 border-b border-slate-200 flex justify-between items-start bg-slate-50 flex-shrink-0">
+          <div className="min-w-0 pr-2">
+            <div className="flex items-center flex-wrap gap-2 mb-0.5">
+              <h3 className="text-base md:text-lg font-bold text-slate-900 truncate">{camera.name}</h3>
+              <span className={`px-2 py-0.5 text-xs font-bold border shrink-0 ${getStatusColor(camera.status)}`}>
                 {camera.status}
               </span>
             </div>
-            <p className="text-slate-500 flex items-center text-xs">
-              <MapPin size={12} className="mr-1" /> {camera.location} - {camera.zone}
+            <p className="text-slate-500 flex items-center text-xs truncate">
+              <MapPin size={12} className="mr-1 shrink-0" /> {camera.location} - {camera.zone}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200 transition">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 transition rounded min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+            aria-label="Đóng"
+          >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 pb-[env(safe-area-inset-bottom)]">
           
           {/* Left Column: Specs & Info */}
           <div className="space-y-4">
@@ -158,10 +163,11 @@ export const CameraDetailModal: React.FC<Props> = ({ camera, onClose, onUpdateNo
                     <h4 className="text-xs font-bold text-indigo-900 flex items-center">
                         <Sparkles size={14} className="mr-1.5 text-purple-600" /> Phân tích AI
                     </h4>
-                    <button 
+                    <button
+                        type="button"
                         onClick={handleAnalyze}
                         disabled={analyzing}
-                        className="text-[11px] bg-white hover:bg-white/80 text-indigo-600 border border-indigo-200 px-2 py-1 shadow-sm transition disabled:opacity-50 font-medium"
+                        className="text-[11px] bg-white hover:bg-white/80 text-indigo-600 border border-indigo-200 px-2 py-2 min-h-[44px] shadow-sm transition disabled:opacity-50 font-medium rounded"
                     >
                         {analyzing ? 'Đang phân tích...' : 'Phân tích Logs'}
                     </button>

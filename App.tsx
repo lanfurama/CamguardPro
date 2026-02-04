@@ -94,7 +94,7 @@ function AppContent() {
         </>
       )}
 
-      {(activeTab === 'properties' || activeTab === 'cameras') && (
+      {activeTab === 'properties' && (
         <CameraList
           cameras={cameras}
           camerasLoading={camerasLoading}
@@ -104,7 +104,6 @@ function AppContent() {
           propertiesLoading={propertiesLoading}
           simulatingIds={simulatingCameraIds}
           onToggleSimulate={toggleSimulation}
-          filterByProperty={activeTab === 'properties'}
           onUpdateNotes={updateCameraNotes}
           onEditCamera={(cam) => {
             setEditingCamera(cam);
@@ -117,14 +116,14 @@ function AppContent() {
             setShowCameraModal(true);
           }}
           onImportCamera={() => setShowImportModal(true)}
-          onEditProperty={activeTab === 'properties' ? (prop) => {
+          onEditProperty={(prop) => {
             setEditingProperty(prop);
             setShowPropertyModal(true);
-          } : undefined}
-          onAddProperty={activeTab === 'properties' ? () => {
+          }}
+          onAddProperty={() => {
             setEditingProperty(null);
             setShowPropertyModal(true);
-          } : undefined}
+          }}
         />
       )}
 
