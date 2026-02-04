@@ -108,21 +108,30 @@ for (const sheetName of ['RESORT', 'VILLAS', 'ARIYANA']) {
     const nameAlt = no ? `${no} - ${position}` : position;
     const status = mapStatus(statusStr);
 
+    const errIso = toIsoIfDate(errTime);
+    const fixIso = toIsoIfDate(fixedTime);
+    const reasonVal = reason && String(reason).trim() ? `'${esc(reason)}'` : 'NULL';
+    const doneByVal = doneBy && String(doneBy).trim() ? `'${esc(doneBy)}'` : 'NULL';
+
     // UPDATE cameras SET status = ... WHERE property_id AND (name = position OR name = nameAlt)
     const whereName = no
       ? `(c.name = '${esc(position)}' OR c.name = '${esc(nameAlt)}')`
       : `c.name = '${esc(position)}'`;
-    statements.push(`-- ${sheetName} row ${i + 1}: ${position}`);
-    statements.push(`UPDATE cameras c SET status = '${status}'::camera_status WHERE c.property_id = '${propId}' AND ${whereName};`);
+    statements.push(`-- ${sheetName} row ${i + 1}: ${position.replace(/[\r\n]+/g, ' ')}`);
+    statements.push(`UPDATE cameras c SET 
+      status = '${status}'::camera_status,
+      error_time = ${errIso ? `'${errIso}'::timestamptz` : 'NULL'},
+      fixed_time = ${fixIso ? `'${fixIso}'::timestamptz` : 'NULL'},
+      reason = ${reasonVal},
+      done_by = ${doneByVal}
+    WHERE c.property_id = '${propId}' AND ${whereName};`);
     updateCount++;
 
     // INSERT maintenance_logs nếu có ít nhất một trong: reason, solution, errTime, fixedTime, doneBy
     const hasLog = [reason, solution, errTime, fixedTime, doneBy].some((x) => x != null && String(x).trim() !== '');
     if (hasLog) {
-      const logId = `LOG_EXCEL_${sheetName}_${i}_${Date.now()}`.replace(/\s/g, '_');
+      const logId = `L_${sheetName.slice(0, 3)}_${i}_${Date.now().toString(36)}`.replace(/\s/g, '_');
       const logDate = toDateOnly(fixedTime) || toDateOnly(errTime) || new Date().toISOString().slice(0, 10);
-      const errIso = toIsoIfDate(errTime);
-      const fixIso = toIsoIfDate(fixedTime);
       const desc = [reason, solution].filter(Boolean).join(' - ') || 'Cập nhật từ Excel';
       const fromWhere = no
         ? `(c.camera_name = '${esc(position)}' OR c.camera_name = '${esc(nameAlt)}')`

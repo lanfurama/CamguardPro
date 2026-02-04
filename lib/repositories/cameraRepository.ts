@@ -21,6 +21,10 @@ interface CameraRow {
   last_ping_time: string;
   notes: string | null;
   is_new?: boolean;
+  error_time?: string | null;
+  fixed_time?: string | null;
+  reason?: string | null;
+  done_by?: string | null;
 }
 
 interface LogRow {
@@ -36,7 +40,7 @@ interface LogRow {
   type: string;
 }
 
-function mapToCamera(row: CameraRow, logs: LogRow[]): Camera {
+function mapToCamera(row: CameraRow): Camera {
   return {
     id: row.id,
     propertyId: row.property_id,
@@ -53,17 +57,12 @@ function mapToCamera(row: CameraRow, logs: LogRow[]): Camera {
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? '',
     isNew: row.is_new ?? false,
-    logs: logs.map((l) => ({
-      id: l.id,
-      date: l.log_date,
-      description: l.description,
-      technician: l.technician ?? undefined,
-      type: l.type as 'REPAIR' | 'CHECKUP' | 'INSTALLATION',
-      errorTime: l.error_time != null ? (l.error_time instanceof Date ? l.error_time.toISOString() : String(l.error_time)) : undefined,
-      fixedTime: l.fixed_time != null ? (l.fixed_time instanceof Date ? l.fixed_time.toISOString() : String(l.fixed_time)) : undefined,
-      reason: l.reason ?? undefined,
-      solution: l.solution ?? undefined,
-    })),
+    errorTime: row.error_time ?? undefined,
+    fixedTime: row.fixed_time ?? undefined,
+    reason: row.reason ?? undefined,
+    doneBy: row.done_by ?? undefined,
+    solution: row.notes ?? undefined,
+    logs: [],
   };
 }
 
@@ -84,17 +83,21 @@ interface CameraRowLike {
   last_ping_time: string | number;
   notes: string | null;
   is_new?: boolean;
+  error_time?: string | null;
+  fixed_time?: string | null;
+  reason?: string | null;
+  done_by?: string | null;
 }
 
 async function fetchCameraRows(): Promise<CameraRowLike[]> {
   try {
     const result = await query<CameraRowLike>(
-      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
+      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by
        FROM v_cameras_full ORDER BY camera_name`
     );
     if (result.rows.length > 0) return result.rows;
     const direct = await query<CameraRowLike>(
-      `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+      `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new, c.error_time, c.fixed_time, c.reason, c.done_by
        FROM cameras c
        LEFT JOIN property_zones pz ON pz.id = c.zone_id
        ORDER BY c.name`
@@ -104,7 +107,7 @@ async function fetchCameraRows(): Promise<CameraRowLike[]> {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('v_cameras_full') || msg.includes('does not exist') || msg.includes('relation')) {
       const fallback = await query<CameraRowLike>(
-        `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+        `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new, c.error_time, c.fixed_time, c.reason, c.done_by
          FROM cameras c
          LEFT JOIN property_zones pz ON pz.id = c.zone_id
          ORDER BY c.name`
@@ -119,27 +122,11 @@ export async function getAllCameras(): Promise<Camera[]> {
   const rows = await fetchCameraRows();
   if (rows.length === 0) return [];
 
-  const cameraIds = rows.map((r) => r.id);
-  const logsResult = await query<LogRow>(
-    `SELECT id, camera_id, log_date::text, error_time, fixed_time, description, reason, solution, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
-    [cameraIds]
-  );
-
-  const logsByCamera = new Map<string, LogRow[]>();
-  for (const log of logsResult.rows) {
-    const arr = logsByCamera.get(log.camera_id) ?? [];
-    arr.push(log);
-    logsByCamera.set(log.camera_id, arr);
-  }
-
   return rows.map((row) =>
-    mapToCamera(
-      {
-        ...row,
-        last_ping_time: String(row.last_ping_time ?? ''),
-      } as CameraRow,
-      logsByCamera.get(row.id) ?? []
-    )
+    mapToCamera({
+      ...row,
+      last_ping_time: String(row.last_ping_time ?? ''),
+    } as CameraRow)
   );
 }
 
@@ -189,32 +176,7 @@ export async function createCamera(data: Camera): Promise<Camera> {
     ]
   );
 
-  if (data.logs?.length) {
-    const today = new Date().toISOString().slice(0, 10);
-    for (let i = 0; i < data.logs.length; i++) {
-      const log = data.logs[i];
-      const logId = log.id || `LOG_${id}_${i}`;
-      let logDate = (log.date || '').toString().trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) logDate = today;
-      await query(
-        `INSERT INTO maintenance_logs (id, camera_id, log_date, error_time, fixed_time, description, reason, solution, technician, type)
-         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          logId,
-          id,
-          logDate,
-          log.errorTime ? new Date(log.errorTime).toISOString() : null,
-          log.fixedTime ? new Date(log.fixedTime).toISOString() : null,
-          log.description || '',
-          log.reason ?? null,
-          log.solution ?? null,
-          log.technician || null,
-          log.type || 'CHECKUP',
-        ]
-      );
-    }
-  }
+  // Logs are no longer stored since maintenance_logs table was deleted
 
   const all = await getAllCameras();
   return all.find((c) => c.id === id)!;

@@ -28,7 +28,12 @@ export interface Camera {
   lastPingTime: number;
   logs: MaintenanceLog[];
   notes: string;
-  isNew?: boolean; // Excel "NEW"
+  isNew?: boolean;
+  errorTime?: string;
+  fixedTime?: string;
+  reason?: string;
+  doneBy?: string; // Excel "Done By"
+  solution?: string; // Excel "Solution"
 }
 
 export interface Property {

@@ -30,6 +30,11 @@ export interface Camera {
   logs: MaintenanceLog[];
   notes: string;
   isNew?: boolean;
+  errorTime?: string;
+  fixedTime?: string;
+  reason?: string;
+  doneBy?: string;
+  solution?: string;
 }
 
 export interface Property {
