@@ -21,6 +21,10 @@ interface CameraRow {
   last_ping_time: string;
   notes: string | null;
   is_new?: boolean;
+  error_time?: string | null;
+  fixed_time?: string | null;
+  reason?: string | null;
+  done_by?: string | null;
 }
 
 interface LogRow {
@@ -53,6 +57,11 @@ function mapToCamera(row: CameraRow): Camera {
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? '',
     isNew: row.is_new ?? false,
+    errorTime: row.error_time ?? undefined,
+    fixedTime: row.fixed_time ?? undefined,
+    reason: row.reason ?? undefined,
+    doneBy: row.done_by ?? undefined,
+    solution: row.notes ?? undefined,
     logs: [],
   };
 }
@@ -74,17 +83,21 @@ interface CameraRowLike {
   last_ping_time: string | number;
   notes: string | null;
   is_new?: boolean;
+  error_time?: string | null;
+  fixed_time?: string | null;
+  reason?: string | null;
+  done_by?: string | null;
 }
 
 async function fetchCameraRows(): Promise<CameraRowLike[]> {
   try {
     const result = await query<CameraRowLike>(
-      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
+      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by
        FROM v_cameras_full ORDER BY camera_name`
     );
     if (result.rows.length > 0) return result.rows;
     const direct = await query<CameraRowLike>(
-      `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+      `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new, c.error_time, c.fixed_time, c.reason, c.done_by
        FROM cameras c
        LEFT JOIN property_zones pz ON pz.id = c.zone_id
        ORDER BY c.name`
@@ -94,7 +107,7 @@ async function fetchCameraRows(): Promise<CameraRowLike[]> {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('v_cameras_full') || msg.includes('does not exist') || msg.includes('relation')) {
       const fallback = await query<CameraRowLike>(
-        `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new
+        `SELECT c.id, c.property_id, COALESCE(pz.name, '') AS zone_name, c.name AS camera_name, c.location, c.ip, c.brand, c.model, c.specs, c.supplier, c.status, c.consecutive_drops, c.last_ping_time, c.notes, c.is_new, c.error_time, c.fixed_time, c.reason, c.done_by
          FROM cameras c
          LEFT JOIN property_zones pz ON pz.id = c.zone_id
          ORDER BY c.name`
