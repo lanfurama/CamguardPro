@@ -9,7 +9,11 @@ loadEnv({ path: path.resolve(process.cwd(), '.env') });
 
 import type { Connect } from 'vite';
 import { IncomingMessage } from 'http';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { checkConnection, isDbConfigured } from '../lib/db';
+
+const execAsync = promisify(exec);
 import { getCameras, getProperties, getBrands } from '../lib/api-data';
 import * as cameraRepo from '../lib/repositories/cameraRepository';
 import * as propertyRepo from '../lib/repositories/propertyRepository';
@@ -70,6 +74,31 @@ export const apiMiddleware: Connect.NextHandleFunction = async (req, res, next) 
         database: dbStatus.ok ? 'connected' : 'disconnected',
         ...(dbStatus.error && { databaseError: dbStatus.error }),
       });
+    }
+
+    // POST /api/cameras/test-connection — test bằng ping ICMP
+    if (path === '/api/cameras/test-connection' && req.method === 'POST') {
+      const ip = typeof body.ip === 'string' ? body.ip.trim() : '';
+      if (!ip) return jsonRes(res, { ok: false, error: 'Thiếu địa chỉ IP' }, 400);
+      if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+        return jsonRes(res, { ok: false, error: 'IP không hợp lệ' }, 400);
+      }
+      const isWin = process.platform === 'win32';
+      const cmd = isWin ? `ping -n 1 -w 4000 ${ip}` : `ping -c 1 -W 4 ${ip}`;
+      let output = '';
+      try {
+        const { stdout, stderr } = await execAsync(cmd);
+        output = (stdout + ' ' + stderr).toLowerCase();
+      } catch (e: unknown) {
+        const err = e as { stdout?: string; stderr?: string };
+        output = ((err.stdout ?? '') + ' ' + (err.stderr ?? '')).toLowerCase();
+      }
+      const isUnreachable = /unreachable|timed out|100%\s*(packet\s*)?loss|request timed out|destination host unreachable|ttl expired|transmit failed/i.test(output);
+      const hasReply = /reply from|bytes=\d+\s+time=|from \d+\.\d+\.\d+\.\d+:\s+bytes=\d+/i.test(output);
+      if (isUnreachable || !hasReply) {
+        return jsonRes(res, { ok: false, message: 'Không ping được (host không phản hồi hoặc Destination host unreachable)' });
+      }
+      return jsonRes(res, { ok: true, message: 'Ping thành công' });
     }
 
     // ===== AI (Vertex / Gemini) - chạy trên server, không cần DB =====
@@ -141,6 +170,12 @@ export const apiMiddleware: Connect.NextHandleFunction = async (req, res, next) 
             error: `Lỗi tải danh sách camera: ${msg}. Kiểm tra đã chạy database/schema.sql (có view v_cameras_full).`,
           }, 500);
         }
+      }
+      if (req.method === 'DELETE') {
+        const propertyId = new URL(url, 'http://localhost').searchParams.get('propertyId');
+        if (!propertyId?.trim()) return jsonRes(res, { error: 'Thiếu propertyId' }, 400);
+        const deleted = await cameraRepo.deleteCamerasByProperty(propertyId.trim());
+        return jsonRes(res, { deleted });
       }
       if (req.method === 'POST') {
         if (body.cameras?.length) {

@@ -71,6 +71,23 @@ export function useCameras(addNotification: AddNotificationFn) {
     [addNotification]
   );
 
+  const handleDeleteAllCamerasByProperty = useCallback(
+    async (propertyId: string): Promise<number> => {
+      try {
+        const res = await camerasApi.deleteByProperty(propertyId);
+        const count = res.deleted ?? 0;
+        setCameras((prev) => prev.filter((c) => c.propertyId !== propertyId));
+        addNotification(`Đã xoá ${count} camera khỏi tòa nhà.`, 'WARNING');
+        return count;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Lỗi xoá camera';
+        addNotification(msg, 'ERROR');
+        return 0;
+      }
+    },
+    [addNotification]
+  );
+
   const handleImportCameras = useCallback(
     async (newCameras: Camera[]): Promise<boolean> => {
       try {
@@ -130,6 +147,7 @@ export function useCameras(addNotification: AddNotificationFn) {
     simulatingCameraIds,
     handleSaveCamera,
     handleDeleteCamera,
+    handleDeleteAllCamerasByProperty,
     handleImportCameras,
     toggleSimulation,
     updateCameraNotes,

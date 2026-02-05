@@ -5596,7 +5596,7 @@ function isDbConfigured() {
 }
 
 // api-src/_lib/repositories/cameraRepository.ts
-function mapToCamera(row, logs) {
+function mapToCamera(row) {
   return {
     id: row.id,
     propertyId: row.property_id,
@@ -5613,39 +5613,39 @@ function mapToCamera(row, logs) {
     lastPingTime: Number(row.last_ping_time),
     notes: row.notes ?? "",
     isNew: row.is_new,
-    logs: logs.map((l) => ({
-      id: l.id,
-      date: l.log_date,
-      description: l.description,
-      technician: l.technician ?? void 0,
-      type: l.type,
-      errorTime: l.error_time != null ? l.error_time instanceof Date ? l.error_time.toISOString() : String(l.error_time) : void 0,
-      fixedTime: l.fixed_time != null ? l.fixed_time instanceof Date ? l.fixed_time.toISOString() : String(l.fixed_time) : void 0,
-      reason: l.reason ?? void 0,
-      solution: l.solution ?? void 0
-    }))
+    // Get error data directly from cameras table
+    errorTime: row.error_time ? String(row.error_time) : void 0,
+    fixedTime: row.fixed_time ? String(row.fixed_time) : void 0,
+    reason: row.reason ?? void 0,
+    doneBy: row.done_by ?? void 0,
+    solution: row.solution ?? void 0,
+    logs: []
+    // No logs since maintenance_logs table was deleted
   };
 }
 async function getAllCameras() {
   const camerasResult = await query(
-    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution
      FROM v_cameras_full ORDER BY camera_name`
   );
-  if (camerasResult.rows.length === 0) return [];
-  const cameraIds = camerasResult.rows.map((r) => r.id);
-  const logsResult = await query(
-    `SELECT id, camera_id, log_date::text, error_time, fixed_time, description, reason, solution, technician, type FROM maintenance_logs WHERE camera_id = ANY($1) ORDER BY log_date DESC`,
-    [cameraIds]
-  );
-  const logsByCamera = /* @__PURE__ */ new Map();
-  for (const log of logsResult.rows) {
-    const arr = logsByCamera.get(log.camera_id) ?? [];
-    arr.push(log);
-    logsByCamera.set(log.camera_id, arr);
+  return camerasResult.rows.map((row) => mapToCamera(row));
+}
+async function findExistingCamera(propertyId, name, id) {
+  if (id) {
+    const byId = await query(
+      `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution
+       FROM v_cameras_full WHERE id = $1`,
+      [id]
+    );
+    if (byId.rows.length > 0) return mapToCamera(byId.rows[0]);
   }
-  return camerasResult.rows.map(
-    (row) => mapToCamera(row, logsByCamera.get(row.id) ?? [])
+  const byPropName = await query(
+    `SELECT id, property_id, zone_name, camera_name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution
+     FROM v_cameras_full WHERE property_id = $1 AND camera_name = $2`,
+    [propertyId, name.trim()]
   );
+  if (byPropName.rows.length > 0) return mapToCamera(byPropName.rows[0]);
+  return null;
 }
 async function getOrCreateZoneId(propertyId, zoneName) {
   let result = await query(
@@ -5666,8 +5666,8 @@ async function createCamera(data) {
   const id = data.id || generateCameraId();
   const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
   await query(
-    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+    `INSERT INTO cameras (id, property_id, zone_id, name, location, ip, brand, model, specs, supplier, status, consecutive_drops, last_ping_time, notes, is_new, error_time, fixed_time, reason, done_by, solution)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
     [
       id,
       data.propertyId,
@@ -5683,45 +5683,68 @@ async function createCamera(data) {
       data.consecutiveDrops ?? 0,
       data.lastPingTime ?? Date.now(),
       data.notes || null,
-      data.isNew ?? false
+      data.isNew ?? false,
+      data.errorTime ?? null,
+      data.fixedTime ?? null,
+      data.reason ?? null,
+      data.doneBy ?? null,
+      data.solution ?? null
     ]
   );
-  if (data.logs?.length) {
-    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    for (let i = 0; i < data.logs.length; i++) {
-      const log = data.logs[i];
-      const logId = log.id || `LOG_${id}_${i}`;
-      let logDate = (log.date || "").toString().trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) logDate = today;
-      await query(
-        `INSERT INTO maintenance_logs (id, camera_id, log_date, error_time, fixed_time, description, reason, solution, technician, type)
-         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          logId,
-          id,
-          logDate,
-          log.errorTime ? new Date(log.errorTime).toISOString() : null,
-          log.fixedTime ? new Date(log.fixedTime).toISOString() : null,
-          log.description || "",
-          log.reason ?? null,
-          log.solution ?? null,
-          log.technician || null,
-          log.type || "CHECKUP"
-        ]
-      );
-    }
-  }
   const all = await getAllCameras();
   return all.find((c) => c.id === id);
 }
+async function updateCamera(data) {
+  const zoneId = await getOrCreateZoneId(data.propertyId, data.zone);
+  await query(
+    `UPDATE cameras SET property_id=$2, zone_id=$3, name=$4, location=$5, ip=$6, brand=$7, model=$8, specs=$9, supplier=$10, status=$11, consecutive_drops=$12, last_ping_time=$13, notes=$14, is_new=$15, error_time=$16, fixed_time=$17, reason=$18, done_by=$19, solution=$20 WHERE id=$1`,
+    [
+      data.id,
+      data.propertyId,
+      zoneId,
+      data.name,
+      data.location || null,
+      data.ip,
+      data.brand,
+      data.model || null,
+      data.specs || null,
+      data.supplier || null,
+      data.status,
+      data.consecutiveDrops ?? 0,
+      data.lastPingTime ?? Date.now(),
+      data.notes || null,
+      data.isNew ?? false,
+      data.errorTime ?? null,
+      data.fixedTime ?? null,
+      data.reason ?? null,
+      data.doneBy ?? null,
+      data.solution ?? null
+    ]
+  );
+  const all = await getAllCameras();
+  return all.find((c) => c.id === data.id);
+}
+function cameraHasChange(existing, incoming) {
+  const s = (v) => v ?? "";
+  return s(existing.name) !== s(incoming.name) || s(existing.zone) !== s(incoming.zone) || s(existing.ip) !== s(incoming.ip) || s(existing.brand) !== s(incoming.brand) || s(existing.model) !== s(incoming.model) || s(existing.notes) !== s(incoming.notes) || (existing.isNew ?? false) !== (incoming.isNew ?? false) || s(existing.errorTime) !== s(incoming.errorTime) || s(existing.fixedTime) !== s(incoming.fixedTime) || s(existing.reason) !== s(incoming.reason) || s(existing.doneBy) !== s(incoming.doneBy) || s(existing.solution) !== s(incoming.solution) || (existing.status ?? "ONLINE") !== (incoming.status ?? "ONLINE");
+}
 async function importCameras(cameras) {
-  const created = [];
+  const result = [];
   for (const cam of cameras) {
-    const c = await createCamera({ ...cam, id: cam.id || void 0 });
-    created.push(c);
+    const existing = await findExistingCamera(cam.propertyId, cam.name, cam.id);
+    if (existing) {
+      if (cameraHasChange(existing, cam)) {
+        const updated = await updateCamera({ ...cam, id: existing.id });
+        result.push(updated);
+      } else {
+        result.push(existing);
+      }
+    } else {
+      const created = await createCamera({ ...cam, id: cam.id || void 0 });
+      result.push(created);
+    }
   }
-  return created;
+  return result;
 }
 
 // api-src/_lib/api-data.ts

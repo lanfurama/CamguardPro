@@ -15,6 +15,7 @@ interface AppContextValue {
 
   // Notifications
   notifications: ReturnType<typeof useNotifications>['notifications'];
+  addNotification: ReturnType<typeof useNotifications>['addNotification'];
   clearNotifications: ReturnType<typeof useNotifications>['clearNotifications'];
 
   // Cameras
@@ -25,6 +26,7 @@ interface AppContextValue {
   simulatingCameraIds: Set<string>;
   handleSaveCamera: (data: Camera, editingCamera: Camera | null) => void;
   handleDeleteCamera: (id: string) => void;
+  handleDeleteAllCamerasByProperty: (propertyId: string) => Promise<number>;
   handleImportCameras: (cameras: Camera[]) => void;
   toggleSimulation: (cameraId: string) => void;
   updateCameraNotes: (id: string, notes: string) => void;
@@ -67,6 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     activeTab,
     setActiveTab,
     notifications,
+    addNotification,
     clearNotifications,
     cameras: camerasData.cameras,
     camerasLoading: camerasData.loading,
@@ -75,6 +78,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     simulatingCameraIds: camerasData.simulatingCameraIds,
     handleSaveCamera: (data, editing) => camerasData.handleSaveCamera(data, editing),
     handleDeleteCamera: camerasData.handleDeleteCamera,
+    handleDeleteAllCamerasByProperty: camerasData.handleDeleteAllCamerasByProperty,
     handleImportCameras: camerasData.handleImportCameras,
     toggleSimulation: camerasData.toggleSimulation,
     updateCameraNotes: camerasData.updateCameraNotes,

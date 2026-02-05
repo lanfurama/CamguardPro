@@ -70,7 +70,7 @@ function parseCsvWithQuotes(text: string): string[][] {
   return rows;
 }
 
-const CHECKLIST_HEADER_NAMES = ['No', 'Position', 'NEW', 'Error Time', 'FixedTime', 'Reason', 'Done By', 'Solution'];
+const CHECKLIST_HEADER_NAMES = ['No', 'Position', 'IP', 'STATUS', 'NEW', 'Error Time', 'FixedTime', 'Reason', 'Done By', 'Solution'];
 
 function findChecklistHeader(rows: string[][]): { headerRowIndex: number; indices: Record<string, number> } | null {
   for (let r = 0; r < rows.length; r++) {
@@ -87,6 +87,10 @@ function findChecklistHeader(rows: string[][]): { headerRowIndex: number; indice
       if (idx >= 0) indices[name] = idx;
     }
     if (!indices['Position']) indices['Position'] = positionIdx;
+    if (indices['STATUS'] === undefined) {
+      const stutusIdx = row.findIndex(c => /^Stutus$/i.test(c));
+      if (stutusIdx >= 0) indices['STATUS'] = stutusIdx;
+    }
     return { headerRowIndex: r, indices };
   }
   return null;
@@ -215,13 +219,15 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
 
       const headerResult = findChecklistHeader(rows);
       if (!headerResult) {
-        setError('Không tìm thấy dòng tiêu đề đúng format. Cần có các cột: No, Position, NEW, Error Time, FixedTime, Reason, Done By, Solution.');
+        setError('Không tìm thấy dòng tiêu đề đúng format. Cần có các cột: No, Position (bắt buộc). Có thể có thêm: IP, STATUS, NEW, Error Time, FixedTime, Reason, Done By, Solution.');
         return;
       }
 
     const { headerRowIndex, indices } = headerResult;
     const idxNo = indices['No'] ?? 0;
     const idxPosition = indices['Position'] ?? 1;
+    const idxIp = indices['IP'];
+    const idxStatus = indices['STATUS'];
     const idxNew = indices['NEW'];
     const idxErrorTime = indices['Error Time'];
     const idxFixedTime = indices['FixedTime'];
@@ -229,15 +235,37 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
     const idxDoneBy = indices['Done By'];
     const idxSolution = indices['Solution'];
 
+    /** Validate IP format (e.g. 192.168.1.241) */
+    const isValidIp = (s: string) => /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(String(s ?? '').trim());
+
+    /** Extract network prefix from header rows (e.g. "192.168.100." from "Furama Resort 192.168.100.x") */
+    let networkPrefix = '';
+    const headerText = rows.slice(0, headerRowIndex).map((r) => r.join(',')).join('\n');
+    const prefixMatch = headerText.match(/192\.168\.(\d{1,3})\.(?:x|\d{1,3})/i);
+    if (prefixMatch) networkPrefix = `192.168.${prefixMatch[1]}.`;
+
+    /** Resolve IP: full IP, or last octet + prefix (RESORT format), or TBD */
+    const resolveIp = (ipRaw: string): string => {
+      const s = String(ipRaw ?? '').trim();
+      if (isValidIp(s)) return s;
+      const num = parseInt(s, 10);
+      if (!Number.isNaN(num) && num >= 1 && num <= 254 && networkPrefix) {
+        return networkPrefix + num;
+      }
+      return 'TBD';
+    };
+
     const cameras: Camera[] = [];
     const ts = Date.now();
 
     for (let i = headerRowIndex + 1; i < rows.length; i++) {
       const row = rows[i] || [];
       const position = (row[idxPosition] ?? '').toString().trim();
-      if (!position || position === 'Màn hình 1' || /^\d+$/.test(position)) continue;
+      if (!position || /^Màn(\s+hình)?\s*\d*$/i.test(position) || /^\d+$/.test(position)) continue;
 
       const no = (row[idxNo] ?? '').toString().trim();
+      const ipRaw = (typeof idxIp === 'number' && idxIp >= 0 ? row[idxIp] : '')?.toString().trim() ?? '';
+      const statusRaw = (typeof idxStatus === 'number' && idxStatus >= 0 ? row[idxStatus] : '')?.toString().trim() ?? '';
       const newVal = (typeof idxNew === 'number' && idxNew >= 0 ? row[idxNew] : '')?.toString().trim() ?? '';
       const errTimeRaw = (typeof idxErrorTime === 'number' && idxErrorTime >= 0 ? row[idxErrorTime] : '')?.toString().trim() ?? '';
       const fixedTimeRaw = (typeof idxFixedTime === 'number' && idxFixedTime >= 0 ? row[idxFixedTime] : '')?.toString().trim() ?? '';
@@ -248,16 +276,17 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
       const errorTime = parseChecklistDateToIso(errTimeRaw);
       const fixedTime = parseChecklistDateToIso(fixedTimeRaw);
       const isNew = /new|mới/i.test(newVal) || !!newVal.trim();
+      const ip = resolveIp(ipRaw);
 
       const notesParts = [reason, solution, errTimeRaw ? `Error: ${errTimeRaw}` : '', fixedTimeRaw ? `Fixed: ${fixedTimeRaw}` : '', doneBy ? `By: ${doneBy}` : ''].filter(Boolean);
       const notes = notesParts.join(' | ') || 'Import từ CSV Check list Camera';
 
-      const status = mapExcelStatusToApp(doneBy || reason || newVal);
+      const status = mapExcelStatusToApp(statusRaw || doneBy || reason || newVal);
 
       cameras.push({
         id: `CAM_CSV_${ts}_${i}`,
         name: no ? `${no} - ${position}` : position,
-        ip: 'TBD',
+        ip,
         propertyId: selectedPropertyId,
         zone: position,
         location: position,
@@ -312,7 +341,7 @@ export const ImportModal: React.FC<Props> = ({ properties, onImport, onClose }) 
           <div className="bg-blue-50 p-3 mb-3 text-xs text-blue-800 border border-blue-100 rounded">
             <p className="font-bold mb-1 flex items-center"><AlertCircle size={12} className="mr-1" /> Hướng dẫn &amp; lưu ý</p>
             <ul className="list-disc ml-4 space-y-0.5">
-              <li><strong>Format bắt buộc:</strong> File CSV phải có dòng tiêu đề chứa đúng các cột: <strong>No, Position, NEW, Error Time, FixedTime, Reason, Done By, Solution</strong> — giống file &quot;Check list Camera All Site&quot; (RESORT / VILLAS / ARIYANA).</li>
+              <li><strong>Format hỗ trợ:</strong> Dòng tiêu đề cần có <strong>No, Position</strong>. File Check list (RESORT/VILLAS/ARIYANA) có thêm <strong>IP, STATUS, NEW, Error Time, FixedTime, Reason, Done By, Solution</strong> — hệ thống sẽ đọc đúng các cột.</li>
               <li><strong>Dòng tiêu đề:</strong> Có thể có 1–2 dòng mô tả phía trên (tên báo cáo, tên site); hệ thống sẽ tự tìm dòng có cột Position và Reason (hoặc Error Time) để nhận diện header.</li>
               <li><strong>Chọn toà nhà:</strong> Chọn đúng toà nhà tương ứng với nội dung file (ví dụ: Furama Resort, Furama Villas, Ariyana Centre).</li>
               <li><strong>Cột bắt buộc:</strong> <strong>Position</strong> = tên/vị trí camera (bắt buộc). Các cột NEW, Error Time, FixedTime, Reason, Done By, Solution có thể để trống.</li>

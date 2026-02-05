@@ -42,6 +42,8 @@ export const camerasApi = {
     }),
   delete: (id: string) =>
     fetchApi<{ ok: boolean }>(`/api/cameras/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  deleteByProperty: (propertyId: string) =>
+    fetchApi<{ deleted: number }>(`/api/cameras?propertyId=${encodeURIComponent(propertyId)}`, { method: 'DELETE' }),
   updateNotes: (id: string, notes: string) =>
     fetchApi<{ ok: boolean }>(`/api/cameras/${encodeURIComponent(id)}`, {
       method: 'PATCH',
@@ -49,6 +51,11 @@ export const camerasApi = {
     }),
   import: (cameras: Camera[]) =>
     fetchApi<Camera[]>('/api/cameras', { method: 'POST', body: { cameras } }),
+  testConnection: (ip: string) =>
+    fetchApi<{ ok: boolean; port?: number; message?: string; error?: string }>('/api/cameras/test-connection', {
+      method: 'POST',
+      body: { ip },
+    }),
 };
 
 // ===== Properties =====

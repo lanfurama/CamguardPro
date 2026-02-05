@@ -41,6 +41,8 @@ export const STATUS_EXCEL_MAP: Record<string, 'ONLINE' | 'OFFLINE' | 'MAINTENANC
   lỗi: 'WARNING',
   mất: 'WARNING',
   nghi: 'WARNING',
+  off: 'OFFLINE',
+  OFF: 'OFFLINE',
 };
 /** Gợi ý: nếu Status Excel không khớp, mô tả chi tiết (VD "Mất hồng ngoại") nên ghi vào Ghi chú (Notes). */
 

@@ -1,0 +1,228 @@
+CAMERA  LISTING UPDATED 01/1/2026,,,,,,,,,
+Furama Resort : 130  camera   192.168.100.x                                                                                                                               ,,,,,,,,,
+No,Position,IP,Status,NEW,Error Time,FixedTime,Reason,Done By,Solution
+Màn 1,,192.168.100.x,,34,,,,,
+1,ICP LOBBY,51,"Nghi mất hồng ngoại
+Đêm tối ko thấy gì",,,,,,
+2,DANANG 1L,52,Mất hồng ngoại,,13h 16/04/25,16h 222/04/25,no colour,done,
+3,DANANG 1R,53,Mất hồng ngoại,,,,,,
+4,DANANG 2L,54,Ok,,13h 16/04/25,16h 222/04/25,no colour,done,
+5,DANANG 2R,55,OK,,,,,,
+6,DANANG 3L,56,OK,,13h 16/04/25,16h 222/04/25,no colour,done,
+7,DANANG 3R,57,OK,,,,,,
+8,ICP FOYER,58,Mất hồng ngoại,,,,,,
+9,ICP CORRIDOR,59,OK,,,,,,
+10,ICP MAIN GATE,125,Khó đọc biển số xe,,,,,,
+11,ICP UPSTAIR,60,OK,,,,,,
+12,BUTCHERY STORE,81,OK,,,,,,
+13,LUGGAGE 2,208,OK,new 23-9-2025,,,,,
+14,OCEAN STORE,85,OK,,,,,,
+15,GALLERY 1,63,OK,,,,,,
+16,GUEST PARKING,104,OK,,7h36 25/02/25,10h 26/02/25,nolink,done,
+17,FURAMA PARKING,103,OK,,,,,,
+18,LUGGAGE 1,207,OK,new 23-9-2025,,,,,
+19,GALLERY FOYER,98,OK,,,,,,
+20,ICP BACKDOOR,122,OK,,21h 12/06/25,8h 13/06/25,nolink,done,
+21,ICP KITCHEN,89,OK,,9h48 13/06/25,10h 13/06/25,nolink,done,
+22,TENNIS-GARDEN,117,OK,,,,,,
+23,ICP BIKE,181,OK,,,,,,
+24,ICP CAR PARKING,102,OK,,,,,,
+25,BUGGY WAY,105,OK,,,,,,
+26,FO LOBBY 1,108,OK,,,,,,
+27,ICP ENTRANCE,124,Mất hồng ngoại,,,,,,
+28,ICP REAGATE,123,OK,,,,,,
+29,GUEST ENTRANCE,104,OK,,8h22 24/02/25,9h 27/02/25,nolink,done,
+30,ICP DROP OFF,101,Mất hồng ngoại,,,,,,
+31,LINEN ROOM,67,OK,,,,,,
+32,RIGHT STEAKHOUSE,206,OK,,8h35 04/01/25,13h35 04/01/25,power down,done,
+33,LEFT STEAKHOUSE,205,OK,,8h35 04/01/26,13h35 04/01/25,power down,done,
+34,OUTSIDE STEAKHOUSE,204,OK,,8h35 04/01/27,13h35 04/01/25,power down,done,
+,,,,,,,,,
+Màn hình 2,,,,32,,,,,
+1,STAFF PARKING,127,OK,,,,,,
+2,ENG WORKSHOP,130,OK,,,,,,
+3,SMOKING AREA,129,OK,,,,,,
+4,RECEIVING AREA,131,OK,,,,,,
+5,GENERAL STORE,83,OK,,,,,,
+6,ART ROOM 1,76,OK,,,,,,
+7,TRI'S ART ROOM,137,OK,,,,,,
+8,SPA- MEDICAL,77,"Gần đây chập chờn mất ít
+ phút lẻ",,,,,,
+9,LAGOON STORE,78,OK,,,,,,
+10,HVL POOL,140,OK,,12/01/25,14/01/25,Sw timeout,Done,
+11,MAIA HOME,16,OK,,,,,,
+12,GALLERY 2,64,OK,,,,,,
+13,GALLERY 3,65,OK,,,,,,
+14,GALLERY 4,66,OK,,,,,,
+15,CF INDO 1,71,OK,,,,,,
+16,Laundry,79,OK,,8h59 03/01/25,04/01/25,No resouce,done,
+17,GAME ROOM 2,193,OK,,,,,,
+18,EAST 3 FLOOR # 305,187,thỉnh thoảng bị chập chờn,,,,,,
+19,EAST 3 FLOOR # 323,188,OK,,,,,,
+20,HVL 1,68,Mất hồng ngoại,,"12/01/25
+13h41 28/03/25","14/01/25
+11h 29/03/25",Sw timeout,"Done
+done",
+21,HVL 2,69,OK,,12/01/25,14/01/25,Sw timeout,Done,
+22,GAME ROOM 1,194,OK,,,,,,
+23,OCEAN ROOM 1,61,OK,,,,,,
+24,WEST FLOOR,92,OK,,14h10 17/03/25,16h 17/03/25,nolink,done,
+25,WEST FLOOR 1,93,OK,,"13h28 22/04/25
+11h54 23/05/25","15h28 22/04/25
+11h 24/05/25","nolink
+view camera lag","done
+done",
+26,WEST FLOOR 2,94,OK,,13h38 14/03/25,,Save data short,,
+27,WEST FLOOR 3,95,OK,,,,,,
+28,WEST FLOOR 4,96,OK,,"20h 12/01/25
+13h38 14/03/25",,"nolink
+save data short time",Done,
+29,STAFF GATE 1,127,"Lưu đầy đủ nhưng khi play
+back bị,đơ màn hình, giật lác ko
+layback được ko đọc được biển
+ số, không zoom to, thu nhỏ
+ được",,,,,,
+30,CF INDO 2,15,Gần đây đã chạy ổn định OK,,11h28 24/03/25,13h23 24/03/25,camera cant save data,done,
+31,CF INDO 3,73,OK,,,,,,
+32,OCEAN ROOM 2,62,OK,,,,,,
+,,,,,,,,,
+Màn hình 3,,,,32,,,,,
+1,WEST ELEVATOR,115,OK,,9h 17/03/25,,nolink,done,
+2,STAFF ELEVATOR,84,OK,,7h30 21/06/25,10/10/2025,nolink,done,PR repair
+3,EAST STAFF ELEVATOR,163,OK,"New cablle
+từ 29-09-2026",,,,,
+4,WEST STAFF ELEVATOR,161,OK,,,,,,
+5,LUGGAGE AREA,106,"hình nhòe,ko đọc dc biển số,
+ko nét như trước đây nữa.
+Đã chỉnh nhưng bị lại",,"12/01/25
+10h16 21/07/25","14/01/25
+9h 22/07/25","Sw timout
+Resolution down","Done
+done",
+6,EAST FLOOR 1,97,OK,,,,,,
+7,EAST FLOOR 2,160,OK,,,,,,
+8,EAST FLOOR 3,99,OK,"New Cable
+từ 17-12-2025",,,,,
+9,EAST 4 FLOOR LIFT,185,OK,,15h 17/03/25,14h 18/03/25,nolink,done,
+10,EAST FLOOR 4,100,Ban ngày hình ảnh ko nét,,15h 17/03/25,14h 18/03/26,nolink,done,
+11,EAST 4 FLOOR #423,182,OK,,21h 06/04/25,9h 07/04/25,cant no open,done,
+12,EAST 4 FLOOR ST.CASE,184,OK,,12h37 20/03/25,15h 21/03/25,solution down,done,
+13,EAST 3 FLOOR LIFT,185,OK,,,,,,
+14,EAST 3 FLOOR ST.CASE,186,OK,,,,,,
+15,TAYA 2 FLOOR LEFT,192,OK,,,,,,
+16,TAYA 2 FLOOR RIGHT,193,OK,,,,,,
+17,BC,201,OK,,,,,,
+18,ROOM 144-146,150,OK,,"10h36 04/01/25
+1h58 06/02/25
+13h37 26/03/25","10h55 5/1/2026
+9h28 06/02/25
+14h20 27/03/25",,"done
+done
+done
+","
+
+replace new camera"
+19,ROOM 141-143,154,OK,,,,,,
+20,KID CLUB,91,Gần đây chập chờn liên tục,,,,,,
+21,BEACH 1,118,Error,,,,,,
+22,BEACH 3,172,OK,,14h14 14/01/25,14h24 14/01/25,power unplug,done,
+23,BEACH 2,119,OK,,"14h14 14/01/26
+15h 11/07/25","14h24 14/01/25
+15h22 16/07/25","power unplug
+camera error","done
+done",
+24,ROOM 132-134,141,OK,,,,,,
+25,ROOM 136-138,142,OK,,,,,,
+26,ROOM 140.142,143,OK,,,,,,
+27,ROOM 149-151,144,OK,,,,,,
+28,ROOM 161-163,146,OK,,,,,,
+29,ROOM 155-157,145,OK,,22h 16/05/25,18/05/25,nolink,done,
+30,RIGHT LED,198,OK,,,,,,
+31,LEFT LED ,197,Ngày Ok..Tối hình ảnh hơi mờ,,,,,,
+32,EAST ELEVATOR,116,OK,,4h30 24/05/25,4h44 24/05/25,Resolution error,done,
+,,,,,,,,,
+Màn hình 4,,,,32,,,,,
+1,OCEAN POOL,75,"Hình nhòe, Ko nét.
+Chỉnh 2 lần chưa dc",,9h 6/06/25,9h57 07/06/25,RJ45 error,done,
+2,MAIN KITCHEN 1,86,OK,,,,,,
+3,MAIN KITCHEN 3,88,OK,,6h46 20/02/25,9h 20/02/25,nolink,done,replace new cam
+4,MAIN KITCHEN 2,87,"Hình ảnh hơi mờ, ko nét.",,,,,,
+5,SPA LEFT DOOR,156,OK,,,,,,
+6,SECURITY OFFICE,132,OK,,,,,,
+7,CHANGING ROOM,133,OK,,,,,,
+8,OCEAN OUTSIDE,113,Mất hồng ngoại,,,,,,
+9,KID OUTSIDE,148,"Hình ảnh mờ, ko nét",,,,,,
+10,BALL KID,147,"Hình ảnh nhòe nhẹ, Ko nét.",,,,,,
+11,SPA WAY,158,OK,,,,,,
+12,DROP OFF,107,OK,,,,,,
+13,FO LOBBY 2,109,OK,,,,,,
+14,FO RECEPTION,110,OK,,,,,,
+15,HVL CORRIDOOR,111,"Hình ảnh lưu hơi mờ, ko nét",,,,,,
+16,COURTYARD,112,OK,,,,,,
+17,SPA FO,159,"Hình ảnh hơi mờ, ko nét",,15h53 23/07/25,16h 25/07/25,nolink,done,Replace new camera
+18,BOH CORRIDOOR,80,OK,,,,,,
+19,OUTSIDE JSC,136,OK,,,,,,
+20,JSC OFFICE,134,OK,,7h36 25/02/25,,nolink,done,
+21,LUNA ,180,OK,,,,,,
+22,EXECUTIVE,90,OK,,,,,,
+23,SPA CENTER DOOR,157,OK,,,,,,
+24,TAYA KIT,190,OK,,02h 04/01/25, 04/01/25,,done,
+25,TAYA 1 FLOOR RIGHT,195,OK,,02h 04/01/25, 04/01/25,,done,
+26,TAYA 1 FLOOR LEFT,196,OK,,02h 04/01/25, 04/01/25,,done,
+27,STAFF CANTEEN ,82,OK,,,,,,
+28,GYM,135,OK,,13h54 01/05/25,11h 15/05/25,,done,
+29,LAGOON BAR,72,Error,New 27-11-2025,"
+17h01 28/12/25
+8h36 04/01/25
+7h25 06/01/25
+Now","30/12/25
+10h55 5/1/2026
+16h36 06/01/25","
+
+
+
+Flicker","
+done
+done
+done
+pending",
+30,RIGHT LG POOL,199,OK,,,,,,
+31,LG POOL 2,200,OK,,02h 04/01/25, 04/01/25,,done,
+32,DONCIP,74,OK,,13/01/25,14/01/25,Port timeout,Done,
+33,"7 Camera Floor 3,4 nolink",,,,8h51 04/1/25,9h28 04/1/25,,done,
+,11 Camera nolink West Wing,,,,13h40 12/01,14h14 12/01/25,,done,
+,5 Camera D3-4 cabinet nolink,,,,8h25 18/01/25,10h 18/01/25,sw time out,done,
+,8 Camera ,,,,8h58 25/2/25,10h 25/02/25,No resouce,done,
+,4 camera Pick ,,,,9h 28/02/25,9h15 25/02/25,Power down by ENG,done,
+,2 Cam da nang 3 ,,,,10h11 04/03/25,,no colour,done,
+,5 camera Taya ,,,,16h45 04/03/25,17h 04/03/25,nolink,done,
+,5 camera Lobby area,,,,19h 07/03/25,6h05 10/03/25,nolink,done,
+,all Recording,,,,4h42 12/03/25,,save old data short time,,
+,3 camera East wing,,,,10h20 17/03/25,11h45 17/03/25,,done,
+,12 camera Ocean wing,Replace new sw,,,9h 18/03/25,10h 20/03/25,,done,Replace new sw
+,"Only 3 cam p28,p30,club house",,,,9h25 19/03/25,,,pending,
+,5 cam villas lobby,Replace new sw,,,13h 19/03/25,14h20 19/03/25,Sw error,done,Replace new sw
+,All camera East wing,move cam port,,,9h 20/03/25,12h37 20/03/25,save old data short time,done,move cam port
+,Recorder 1 ,,,,11h35 05/04/25,12h 05/04/25,cant save data,done,
+,Camera Ocean,,,,19h30 13/04/25,7h 151/04/25,Off came,done,
+,"5 camera icp, Floor4, LG",,,,,16h 22/04/25,"no colour, resolution down",done,
+,Recorder 1 ,,,,12h 30/04/25,13h50 30/04/25,,done,
+,"Camera CF1,2,3 Dcip,Obar
+Main kit 1,2,3, Beach 1",,,,16h18 15/05/25,16h20 15/05/25,Convertor down,done,
+,Spa cabinet nolink,Replace new sw,,,16h 20/05/25,16h20 20/05/25,Sw down,done,Replace new sw
+,More camera nolink,,,,10h 21/05/25,10h27 21/05/25,,done,
+,All Recorder,Recheck database for all Recorder,,,15h 22/05/25,15h 25/05/25,,done,Recheck database for all Recorder
+,"5 camera west floor1,
+8 cam west wing room
+Taya
+",,,,16h 24/05/25,17h 24/05/25,Convertor down,done,
+,All camera sw,Re-check resolution all camera,,,,9h 16/06/25,Lag,done,Re-check resolution all camera
+,East Elevator Camera,,,,,13h30 17/06/25,Remove camera,done,
+,Recorder 3 ,,,,151h 19/06/25,16h 19/06/25,Recorder timeout,done,
+,10 camera resort,,,,21h 19/06/25,9h 20/06/25,Resolution down,done,
+,Setup camera SH,,,,,15/07/25,,done,
+,3 camera SH down,,,,,11h24 18/07/25,Power down by Vendor,done,
+,3 camera SH down,UPS off,,,8h 22/07/25,9h 22/07/25,Power down,done,UPS off
+,4 camera Floor 4 ,,,,4h35 23/07/25,10h 24/07/25,Resolution down,done,
+,East Elevator Camera,,,,,16h 13/08/25,Remove camera,done,
+,"4 cam floor 1,2,3,4",,,,20h30 18/08/25,21h 18/08/25,,done,

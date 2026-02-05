@@ -270,6 +270,14 @@ export async function deleteCamera(id: string): Promise<void> {
   await query(`DELETE FROM cameras WHERE id = $1`, [id]);
 }
 
+export async function deleteCamerasByProperty(propertyId: string): Promise<number> {
+  const result = await query<{ count: string }>(
+    `WITH deleted AS (DELETE FROM cameras WHERE property_id = $1 RETURNING id) SELECT COUNT(*)::text AS count FROM deleted`,
+    [propertyId]
+  );
+  return parseInt(result.rows[0]?.count ?? '0', 10);
+}
+
 export async function updateCameraNotes(id: string, notes: string): Promise<void> {
   await query(`UPDATE cameras SET notes = $2 WHERE id = $1`, [id, notes]);
 }

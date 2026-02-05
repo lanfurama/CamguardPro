@@ -15,6 +15,7 @@ const entries = [
   'api-src/health.ts',
   'api-src/cameras/index.ts',
   'api-src/cameras/[id].ts',
+  'api-src/cameras/test-connection.ts',
   'api-src/brands/index.ts',
   'api-src/brands/[name].ts',
   'api-src/properties/index.ts',

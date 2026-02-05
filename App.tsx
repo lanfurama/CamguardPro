@@ -33,11 +33,10 @@ function AppContent() {
     propertiesError,
     brands,
     brandsLoading,
-    simulatingCameraIds,
     handleSaveCamera,
     handleDeleteCamera,
+    handleDeleteAllCamerasByProperty,
     handleImportCameras,
-    toggleSimulation,
     updateCameraNotes,
     handleSaveProperty,
     handleDeleteProperty,
@@ -102,14 +101,13 @@ function AppContent() {
           onRefetchCameras={refetchCameras}
           properties={properties}
           propertiesLoading={propertiesLoading}
-          simulatingIds={simulatingCameraIds}
-          onToggleSimulate={toggleSimulation}
           onUpdateNotes={updateCameraNotes}
           onEditCamera={(cam) => {
             setEditingCamera(cam);
             setShowCameraModal(true);
           }}
           onDeleteCamera={handleDeleteCamera}
+          onDeleteAllCamerasByProperty={handleDeleteAllCamerasByProperty}
           onAddCamera={(propertyId) => {
             setEditingCamera(null);
             setDefaultPropertyIdForNewCamera(propertyId ?? null);

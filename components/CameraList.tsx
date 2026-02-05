@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Camera, Property } from '../types';
 import type { CameraStatus } from '../types';
-import { Search, Info, Zap, Plus, Trash2, Edit, Building2, Edit2, Filter, X, FileSpreadsheet, Cctv } from 'lucide-react';
+import { Search, Info, Wifi, Plus, Trash2, Edit, Building2, Edit2, Filter, X, FileSpreadsheet, Cctv, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { CameraDetailModal } from './CameraDetailModal';
+import { camerasApi } from '../services/api';
+import { useApp } from '../context/AppContext';
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -32,11 +34,10 @@ interface Props {
   onRefetchCameras?: () => void | Promise<void>;
   properties: Property[];
   propertiesLoading?: boolean;
-  simulatingIds: Set<string>;
-  onToggleSimulate: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onEditCamera: (camera: Camera) => void;
   onDeleteCamera: (id: string) => void;
+  onDeleteAllCamerasByProperty?: (propertyId: string) => Promise<number>;
   onAddCamera: (propertyId?: string) => void;
   onImportCamera: () => void;
   onEditProperty?: (property: Property) => void;
@@ -50,16 +51,121 @@ export const CameraList: React.FC<Props> = ({
   onRefetchCameras,
   properties,
   propertiesLoading,
-  simulatingIds,
-  onToggleSimulate,
   onUpdateNotes,
   onEditCamera,
   onDeleteCamera,
+  onDeleteAllCamerasByProperty,
   onAddCamera,
   onImportCamera,
   onEditProperty,
   onAddProperty,
 }) => {
+  const { addNotification } = useApp();
+  const [testingCameraId, setTestingCameraId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { status: 'success' | 'failure'; message: string }>>({});
+  const [testModal, setTestModal] = useState<{
+    camera: Camera;
+    status: 'testing' | 'success' | 'failure';
+    message?: string;
+  } | null>(null);
+
+  const handleTestConnection = async (camera: Camera) => {
+    if (!camera.ip || camera.ip === 'TBD') {
+      addNotification('Camera chưa có địa chỉ IP để test.', 'WARNING');
+      return;
+    }
+    setTestingCameraId(camera.id);
+    setTestModal({ camera, status: 'testing' });
+    setTestResults((prev) => {
+      const next = { ...prev };
+      delete next[camera.id];
+      return next;
+    });
+    try {
+      const res = await camerasApi.testConnection(camera.ip);
+      const message = res.ok
+        ? (res.message ?? 'Kết nối thành công')
+        : (res.message ?? res.error ?? 'Không kết nối được');
+      setTestResults((prev) => ({
+        ...prev,
+        [camera.id]: { status: res.ok ? 'success' : 'failure', message },
+      }));
+      setTestModal({ camera, status: res.ok ? 'success' : 'failure', message });
+      if (res.ok) {
+        addNotification(`${camera.name} (${camera.ip}): ${message}`, 'INFO');
+      } else {
+        addNotification(`${camera.name} (${camera.ip}): ${message}`, 'ERROR');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi test kết nối';
+      setTestResults((prev) => ({ ...prev, [camera.id]: { status: 'failure', message: msg } }));
+      setTestModal({ camera, status: 'failure', message: msg });
+      addNotification(`${camera.name}: ${msg}`, 'ERROR');
+    } finally {
+      setTestingCameraId(null);
+    }
+  };
+
+  const closeTestModal = () => setTestModal(null);
+
+  const renderTestConnectionUI = (camera: Camera) => {
+    const isTesting = testingCameraId === camera.id;
+    const result = testResults[camera.id];
+    const canTest = camera.ip && camera.ip !== 'TBD';
+
+    if (!canTest) {
+      return (
+        <span className="text-[10px] text-slate-400 px-1.5 py-0.5" title="Chưa có IP">
+          Chưa có IP
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5">
+        {isTesting && (
+          <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded animate-pulse">
+            Đang test...
+          </span>
+        )}
+        {result && !isTesting && (
+          <span
+            className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+              result.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+            }`}
+            title={result.message}
+          >
+            {result.status === 'success' ? 'OK' : 'Lỗi'}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => handleTestConnection(camera)}
+          disabled={isTesting}
+          className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors border rounded ${
+            isTesting
+              ? 'bg-blue-50 text-blue-600 border-blue-200 cursor-wait'
+              : result
+                ? result.status === 'success'
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-blue-600'
+          }`}
+          title={isTesting ? `Đang test kết nối tới ${camera.ip}...` : result ? result.message : `Chưa test — Nhấn để test kết nối ${camera.ip}`}
+        >
+          {isTesting ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : result?.status === 'success' ? (
+            <CheckCircle size={14} />
+          ) : result?.status === 'failure' ? (
+            <XCircle size={14} />
+          ) : (
+            <Wifi size={14} />
+          )}
+        </button>
+      </div>
+    );
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,6 +177,7 @@ export const CameraList: React.FC<Props> = ({
   const [filterIsNew, setFilterIsNew] = useState<'' | 'yes'>('');
   const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [deletingAllForPropertyId, setDeletingAllForPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -189,8 +296,6 @@ export const CameraList: React.FC<Props> = ({
   };
 
   const renderCameraRow = (camera: Camera, index: number) => {
-    const isSimulating = simulatingIds.has(camera.id);
-    const dropPercentage = (camera.consecutiveDrops / 10) * 100;
     const hasError = !!(camera.errorTime && !camera.fixedTime);
 
     return (
@@ -296,26 +401,6 @@ export const CameraList: React.FC<Props> = ({
           )}
         </td>
 
-        {/* Ping */}
-        <td className="px-3 py-2 border-r border-slate-200/80">
-          <div className="flex items-center space-x-2">
-            <div className="flex-1 h-2 bg-slate-200 overflow-hidden rounded-full min-w-[60px]">
-              {camera.status === 'ONLINE' && camera.consecutiveDrops === 0 ? (
-                <div className="h-full bg-emerald-500 w-full rounded-full" />
-              ) : (
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ease-out ${dropPercentage >= 100 ? 'bg-red-600' : dropPercentage >= 5 ? 'bg-orange-500' : 'bg-amber-400'}`}
-                  style={{ width: `${Math.min(dropPercentage, 100)}%` }}
-                />
-              )}
-            </div>
-            <span className={`text-xs font-mono w-8 text-right tabular-nums ${camera.consecutiveDrops > 0 ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
-              {camera.consecutiveDrops}/10
-            </span>
-          </div>
-          {isSimulating && <span className="text-[10px] text-red-500 italic block mt-1">Đang mô phỏng...</span>}
-        </td>
-
         {/* Thao tác */}
         <td className="px-3 py-2 text-right bg-white/50">
           <div className="flex items-center justify-end space-x-1 flex-wrap">
@@ -332,14 +417,7 @@ export const CameraList: React.FC<Props> = ({
             >
               <Trash2 size={14} />
             </button>
-            <button
-              type="button"
-              onClick={() => onToggleSimulate(camera.id)}
-              className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors border rounded ${isSimulating ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
-              title="Mô phỏng rớt mạng (Ping Drop)"
-            >
-              <Zap size={14} />
-            </button>
+            {renderTestConnectionUI(camera)}
             <button
               type="button"
               onClick={() => setSelectedCamera(camera)}
@@ -364,8 +442,6 @@ export const CameraList: React.FC<Props> = ({
   };
 
   const renderCameraCard = (camera: Camera) => {
-    const isSimulating = simulatingIds.has(camera.id);
-    const dropPercentage = (camera.consecutiveDrops / 10) * 100;
     const hasError = !!(camera.errorTime && !camera.fixedTime);
     const statusBadgeClass =
       hasError
@@ -402,21 +478,6 @@ export const CameraList: React.FC<Props> = ({
             {camera.status}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-slate-200 overflow-hidden rounded-full min-w-0">
-            {camera.status === 'ONLINE' && camera.consecutiveDrops === 0 ? (
-              <div className="h-full bg-emerald-500 w-full rounded-full" />
-            ) : (
-              <div
-                className={`h-full rounded-full transition-all ${dropPercentage >= 100 ? 'bg-red-600' : dropPercentage >= 5 ? 'bg-orange-500' : 'bg-amber-400'}`}
-                style={{ width: `${Math.min(dropPercentage, 100)}%` }}
-              />
-            )}
-          </div>
-          <span className={`text-xs font-mono w-8 text-right tabular-nums ${camera.consecutiveDrops > 0 ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
-            {camera.consecutiveDrops}/10
-          </span>
-        </div>
         {(camera.errorTime || camera.reason) && (
           <div className={`text-xs space-y-0.5 p-2 rounded ${hasError ? 'bg-red-100/80 text-red-800' : 'bg-slate-50 text-slate-600'}`}>
             {camera.errorTime && (
@@ -445,16 +506,7 @@ export const CameraList: React.FC<Props> = ({
           >
             <Trash2 size={16} />
           </button>
-          <button
-            type="button"
-            onClick={() => onToggleSimulate(camera.id)}
-            className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center border rounded ${
-              isSimulating ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-200'
-            }`}
-            title="Mô phỏng"
-          >
-            <Zap size={16} />
-          </button>
+          {renderTestConnectionUI(camera)}
           <button
             type="button"
             onClick={() => setSelectedCamera(camera)}
@@ -572,6 +624,29 @@ export const CameraList: React.FC<Props> = ({
                       Sửa tòa nhà
                     </button>
                   )}
+                  {selectedProp && onDeleteAllCamerasByProperty && propCameras.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm(`Xóa tất cả ${propCameras.length} camera trong "${selectedProp?.name}"? Hành động này không thể hoàn tác.`)) return;
+                        setDeletingAllForPropertyId(selectedProp!.id);
+                        try {
+                          await onDeleteAllCamerasByProperty(selectedProp!.id);
+                        } finally {
+                          setDeletingAllForPropertyId(null);
+                        }
+                      }}
+                      disabled={!!deletingAllForPropertyId}
+                      className="flex items-center px-2 py-1 bg-white border border-red-300 text-red-700 hover:bg-red-50 text-xs font-medium disabled:opacity-60"
+                    >
+                      {deletingAllForPropertyId === selectedProp?.id ? (
+                        <Loader2 size={12} className="mr-1 animate-spin" />
+                      ) : (
+                        <Trash2 size={12} className="mr-1" />
+                      )}
+                      Xóa tất cả camera
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onAddCamera(selectedPropertyId ?? undefined)}
@@ -595,7 +670,6 @@ export const CameraList: React.FC<Props> = ({
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 ring-2 ring-red-200" /> Đang lỗi</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500 ring-2 ring-purple-200" /> Mất tín hiệu</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-200" /> Bảo trì</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 ring-2 ring-orange-200" /> Ping bất ổn</span>
                   </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-800 text-white font-semibold text-xs border-b-2 border-slate-700">
@@ -608,7 +682,6 @@ export const CameraList: React.FC<Props> = ({
                         <th className="px-3 py-2.5 text-left border-r border-slate-600">Reason</th>
                         <th className="px-3 py-2.5 text-center border-r border-slate-600">Done By</th>
                         <th className="px-3 py-2.5 text-left border-r border-slate-600">Solution</th>
-                        <th className="px-3 py-2.5 text-left border-r border-slate-600">Ping</th>
                         <th className="px-3 py-2.5 text-right">Thao tác</th>
                       </tr>
                     </thead>
@@ -838,6 +911,79 @@ export const CameraList: React.FC<Props> = ({
         onClose={() => setSelectedCamera(null)}
         onUpdateNotes={onUpdateNotes}
       />
+
+      {/* Modal Test kết nối */}
+      {testModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white shadow-2xl w-full max-w-md rounded-lg overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <Wifi size={18} className="text-indigo-500" />
+                Test kết nối — {testModal.camera.name}
+              </h3>
+              <button
+                type="button"
+                onClick={closeTestModal}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded"
+                aria-label="Đóng"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                <span className="text-sm text-slate-500">Địa chỉ IP:</span>
+                <span className="font-mono text-sm font-medium text-slate-800">{testModal.camera.ip}</span>
+              </div>
+
+              {testModal.status === 'testing' && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-blue-600">
+                    <Loader2 size={24} className="animate-spin shrink-0" />
+                    <span className="font-medium">Đang kiểm tra kết nối...</span>
+                  </div>
+                  <div className="text-sm text-slate-600 space-y-1 pl-9">
+                    <p>• Đang ping ICMP tới {testModal.camera.ip}</p>
+                    <p>• Gửi 1 gói, timeout 4 giây</p>
+                  </div>
+                </div>
+              )}
+
+              {testModal.status === 'success' && (
+                <div className="space-y-2 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                    <CheckCircle size={24} className="shrink-0" />
+                    Kết nối thành công
+                  </div>
+                  <p className="text-sm text-emerald-800 pl-9">{testModal.message}</p>
+                </div>
+              )}
+
+              {testModal.status === 'failure' && (
+                <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700 font-medium">
+                    <XCircle size={24} className="shrink-0" />
+                    Không kết nối được
+                  </div>
+                  <p className="text-sm text-red-800 pl-9">{testModal.message}</p>
+                  <p className="text-xs text-slate-500 pl-9 mt-1">
+                    Kiểm tra: IP đúng chưa, camera bật, mạng nội bộ có thể truy cập.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={closeTestModal}
+                className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded font-medium text-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
